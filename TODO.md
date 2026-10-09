@@ -23,6 +23,7 @@ The development of this cooperative will be orchestrated by the following specia
 - [ ] Create the Job queue and polling endpoints for the outbound workers.
 - [ ] Implement the core `ModelProvider` adapter interface.
 - [ ] Build the OpenRouter / LiteLLM adapter for fallback API inference.
+- [ ] **SpareCycles Integration**: Add an adapter for the SpareCycles OpenAI-compatible endpoint (route donated capacity to/from their network).
 
 ## Phase 2: The Contributor CLI Worker (Weeks 3-5)
 **Assigned to: @agent/worker-cli**
