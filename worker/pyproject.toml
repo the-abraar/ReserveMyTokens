@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reserve-my-tokens-worker"
+version = "0.1.0"
+description = "Worker node CLI for ReserveMyTokens"
+authors = [
+    {name = "Blackbird", email = "blackbird@example.com"}
+]
+dependencies = [
+    "click>=8.0.0",
+    "requests>=2.25.0"
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+rmt-worker = "reserve_my_tokens_worker.cli:main"
