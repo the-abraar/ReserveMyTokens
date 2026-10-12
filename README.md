@@ -4,17 +4,21 @@
 
 **ReserveMyTokens** is a peer-to-peer cooperative for sharing, saving, and donating unused AI model capacity and local compute. 
 
-Instead of letting your monthly AI subscription quotas go to waste or your local GPU sit idle, you can contribute that capacity to the network. In return, you earn credits to borrow capacity later, or you can explicitly donate your compute to verified open-source projects that need it.
+Instead of letting your local GPU sit idle, you can run an open-weight model (Apache 2.0 or MIT licensed) and contribute that capacity to the network. Subscription sharing and pooled API keys are not supported (see `docs/provider-terms.md`). In return, you earn credits to borrow capacity later, or you can explicitly donate your compute to verified open-source projects that need it.
 
 ---
 
 ## 🌟 The Vision
 
-*   **Reserve:** Contribute your spare API quota or local inference capacity today, and earn a cryptographically verifiable claim on future network capacity.
+*   **Reserve:** Contribute local open-weight inference capacity today, and earn a cryptographically verifiable claim on future network capacity.
 *   **Donate:** Directly fund public-good projects (like Wikipedia maintainers, Open Food Facts, etc.) by routing your unused capacity to their tasks.
 *   **Interoperate:** We aren't trying to replace OpenRouter or LiteLLM. We act as a cooperative ledger layer. 
 
 We play well with others! If a project runs out of donated capacity in our network, we seamlessly failover to [SpareCycles](https://sparecycles.io) to keep their tasks alive. We also source our verified open-source projects directly from the [Agentic Commons](https://agentic-commons.org) directory.
+
+---
+
+> **Disclaimer:** Credits are test-only and have no cash value until legal and payment review is complete. This is a concept; see `docs/open_questions.md`.
 
 ---
 

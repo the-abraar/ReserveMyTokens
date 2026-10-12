@@ -18,9 +18,9 @@ The development of this cooperative will be orchestrated by the following specia
 
 - [ ] Initialize the Python FastAPI project and PostgreSQL database using Docker Compose.
 - [ ] Implement Managed OIDC authentication (with mock/stub for local dev).
-- [ ] Design and implement the double-entry PostgreSQL ledger schema (`users`, `ledger_transactions`, `ledger_postings`, `usage_receipts`).
-- [ ] Create the Worker registration and revocation API endpoints.
-- [ ] Create the Job queue and polling endpoints for the outbound workers.
+- [x] Design and implement the double-entry PostgreSQL ledger schema (`users`, `ledger_transactions`, `ledger_postings`, `usage_receipts`).
+- [x] Create the Worker registration and revocation API endpoints.
+- [x] Create the Job queue and polling endpoints for the outbound workers. (short poll, SQLite tests only; Postgres/SKIP LOCKED untested)
 - [ ] Implement the core `ModelProvider` adapter interface.
 - [ ] Build the OpenRouter / LiteLLM adapter for fallback API inference.
 - [ ] **SpareCycles Integration**: Add an adapter for the SpareCycles OpenAI-compatible endpoint (route donated capacity to/from their network).
@@ -30,8 +30,8 @@ The development of this cooperative will be orchestrated by the following specia
 
 - [ ] Scaffold the Python CLI application (installable via pip/brew).
 - [ ] Implement secure credential storage using OS keychain for provider keys.
-- [ ] Build the outbound long-polling client to connect to the Coordinator API.
-- [ ] Implement the **Ollama Adapter**: detect local models, parse tasks, run inference, and collect metrics.
+- [ ] Build the outbound long-polling client (short-poll client exists, unit-tested with mocked HTTP only; never run against a live server) to connect to the Coordinator API.
+- [ ] Implement the **Ollama Adapter**: detect local models, parse tasks, run inference, and collect metrics. (code + mocked unit test incl. temperature; never run against real Ollama)
 - [ ] Implement Signed Usage Receipts (generate cryptographically signed payload of task completion).
 - [ ] Implement the local limits enforcer (max compute hours, spending caps, kill switch).
 
@@ -50,7 +50,7 @@ The development of this cooperative will be orchestrated by the following specia
 - [ ] Verify Boundary A: Ensure no local API keys are transmitted to the coordinator.
 - [ ] Verify Boundary B & C: Audit FastAPI endpoints for rate-limiting, idempotency keys, and prompt-leakage (ensure prompts aren't logged).
 - [ ] Verify Boundary D: Ensure the worker only accepts inference jobs (rejects arbitrary shell execution).
-- [ ] Test double-entry ledger constraints (no negative balances from concurrent requests, no double settlement).
+- [ ] Test double-entry ledger constraints (no negative balances from concurrent requests, no double settlement). (balanced postings, double settle, overdraw tested sequentially on SQLite; concurrency untested)
 - [ ] Write integration tests for the end-to-end flow: `CLI -> Coordinator -> Ledger -> Web Dashboard`.
 
 ## Phase 5: The Pilot (Weeks 11-12)

@@ -1,6 +1,6 @@
-import urllib.request
 import json
 import os
+import urllib.request
 
 url = "https://agentic-commons.org/api/v1/projects"
 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -16,5 +16,5 @@ try:
         json.dump(projects, f, indent=2)
         
     print(f"Successfully fetched and saved {len(projects)} projects to {output_path}")
-except Exception as e:
+except (OSError, ValueError) as e:  # network/file errors and bad JSON
     print(f"Error fetching projects: {e}")

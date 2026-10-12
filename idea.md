@@ -6,11 +6,20 @@ The working concept is an AI Capacity Cooperative. The name can come later; the 
 
 **Visual direction:** an infrastructure network, not a crypto exchange or token trading app.
 
+## Supply policy
+MVP supply is donor-run local open-weight models under permissive licenses (Apache 2.0 or MIT) only, allowlisted per model license, with the license text passed to consumers. Llama and Gemma are deferred pending counsel. Basis: `docs/provider-terms.md`. Credits are test-only with no cash value until legal and payment review.
+
+**Out of scope and why**
+- Consumer-subscription sharing (Claude, ChatGPT, Gemini plans): barred or very likely barred by provider terms.
+- Pooled or donated API keys: barred or restricted (Anthropic, Mistral; OpenAI likely, unconfirmed). Needs written provider approval before it is ever revisited.
+- Hosted-API adapters and OpenRouter/LiteLLM routing of donated keys: same reason.
+- Cash redemption and trading: payment and legal review pending.
+
 ## 1. Product definition
 **Mission:** let people contribute spare AI capacity, earn a claim on future capacity, and donate resources to open-source work.
 
 The product has three actors:
-- **Contributor:** makes approved API capacity or local model inference available.
+- **Contributor:** makes local open-weight model inference available.
 - **Consumer:** spends earned credits to run AI tasks using capacity supplied by the network.
 - **Project maintainer:** submits eligible work and receives donated capacity from the community.
 
@@ -20,14 +29,14 @@ The product has three actors:
 *Include in v1:*
 - Account and contributor enrollment
 - Local-model worker using Ollama
-- Approved API providers and metering
+- Local-model metering
 - Reserve credits and donation pool
 - Open-source project registry
 - Usage ledger and audit history
 - Rate limits and spending caps
 
 *Defer until later:*
-- Claude Code / Antigravity subscription sharing
+- Subscription sharing and API-key pooling (out of scope, see Supply policy)
 - Arbitrary remote code execution
 - General-purpose GPU job scheduling
 - Cash redemption and trading
@@ -40,7 +49,7 @@ The first release should be a working capacity exchange for inference, not a uni
 ## 2. Product flows
 
 **A contributor's journey**
-1. Install the worker and register a local model, or configure an eligible API integration.
+1. Install the worker and register a local model (no API keys or subscriptions).
 2. Choose an allocation, such as 70% of eligible capacity for personal reserve credits and 30% for public-good donations.
 3. Set limits: maximum monthly spend, maximum compute, permitted models and allowed operating hours.
 4. Run the worker. It reports completed jobs and signed usage receipts to the coordinator.
@@ -147,13 +156,13 @@ Your differentiator should be that the platform can coordinate capacity without 
 *Limitation:* We can reduce unnecessary access, but we cannot promise that all prompts are invisible to every party (e.g. host provider logs, compromised local workers).
 
 **Define the trust boundaries**
-- **Boundary A: contributor credentials.** Provider credentials remain on the contributor's device. Encrypt them using the OS keychain. The coordinator never receives them.
+- **Boundary A: contributor credentials.** The MVP accepts no provider credentials. Worker credentials stay on the device in the OS keychain; the coordinator never receives them.
 - **Boundary B: untrusted consumers.** Authenticate each request, enforce request-size and output-token limits, reject prohibited tool calls, and apply per-user quotas. Never trust a client-supplied credit cost or usage count.
 - **Boundary C: coordinator and logs.** Store job metadata separately from prompt content. By default, do not persist raw prompts or model responses in the coordinator's database.
 - **Boundary D: local model worker.** Run only inference workloads in v1. Do not grant filesystem access, arbitrary shell execution, host credentials or unrestricted network access.
 
 **Security controls required before public beta**
-- *Stolen provider key:* Local-only storage, spend caps, key rotation and immediate revocation
+- *Stolen worker credential:* Local-only storage, key rotation and immediate revocation
 - *Malicious worker:* Treat outputs as untrusted; validate usage independently where possible
 - *Prompt leakage:* No default content logging, strict access control and documented provider retention
 - *Credit manipulation:* Server-side pricing, immutable ledger, idempotent settlement
@@ -164,14 +173,13 @@ Your differentiator should be that the platform can coordinate capacity without 
 
 **One additional design decision: who can see the code?**
 For the MVP, I'd support two task modes:
-1. **Private inference:** the consumer sends a prompt to an approved API provider or to a selected local-model worker. The worker can process the plaintext; the platform avoids retaining it unnecessarily.
-2. **Public-good inference:** an open-source project explicitly submits content it is authorized to share. The project may expose task inputs and results publicly if it chooses, but donor credentials and unrelated user data remain private.
+1. **Private inference:** the consumer sends a prompt to a selected local-model worker. The worker can process the plaintext; the platform avoids retaining it unnecessarily.
+2. **Public-good inference:** an open-source project explicitly submits content it is authorized to share. The project may expose task inputs and results publicly if it chooses, but donor data and unrelated user data remain private.
 
 ## 6. Provider terms and commercial feasibility
 The fact that a provider offers an API does not automatically mean an account holder can resell, pool or redistribute its capacity through your service.
 
-- **Anthropic / Claude API:** Anthropic permits individuals and hobbyists to use the Claude API under its commercial terms. Verify whether the proposed third-party pooled-inference and credit-redemption arrangement is permitted.
-- **Google Gemini API:** Google documents API keys, service-account-linked authorization keys and key restrictions. Verify third-party access, resale or redistribution, end-user data obligations.
+- **Hosted APIs and subscriptions:** Out of scope for the MVP. See `docs/provider-terms.md`.
 - **Ollama and locally hosted models:** This is the most straightforward technical starting point. Verify each model's license, redistribution conditions, acceptable use.
 
 ## 7. A realistic 12-week roadmap
@@ -184,8 +192,8 @@ Worker registration and revocation. Outbound job polling. Ollama adapter. Job li
 **Weeks 5–6: Implement accounting**
 Double-entry ledger. Pending reservations and settlement. Refunds for failed jobs. Idempotency. Contributor balance and usage dashboard.
 
-**Weeks 7–8: Add donations and API integration**
-Project registry and moderation. Donation allocations. One approved hosted API adapter. Provider cost reconciliation.
+**Weeks 7–8: Add donations**
+Project registry and moderation. Donation allocations.
 
 **Weeks 9–10: Harden security**
 Threat-model review. Authentication and authorization tests. Worker isolation tests. Secret-leakage tests. Abuse response procedures.
@@ -211,7 +219,7 @@ Start with three pools:
 Keep them separately accounted for. Don't treat donated capacity as backing for personal credit claims.
 
 ## 9. What I would build first
-**Milestone 1:** A web dashboard + Python worker + Ollama + PostgreSQL ledger + one approved API adapter.
+**Milestone 1:** A web dashboard + Python worker + Ollama + PostgreSQL ledger.
 
 The first demo should prove four things:
 1. A contributor registers a worker and contributes inference capacity.
@@ -226,7 +234,7 @@ The first demo should prove four things:
 The brand should communicate a reserve, a shared resource pool, and trust. Minimal technical identity: charcoal, warm amber and off-white.
 
 **The core product language:**
-- **Reserve** — contribute eligible capacity and earn credits.
+- **Reserve** — contribute local open-weight capacity and earn test credits.
 - **Redeem** — spend credits on available network capacity.
 - **Donate** — direct capacity to approved public-good projects.
 - **Connect** — integrate tools and compatible resource providers.
@@ -245,7 +253,7 @@ Publish a small, versioned integration specification from the beginning.
 - **Usage receipt schema:** Standardize job IDs, provider/model identity, metering and settlement evidence
 - **Project funding API:** Let approved open-source platforms request and report donated capacity
 - **Ledger API:** Let users and integrations inspect balances and transaction history
-- **Provider adapter interface:** Allow new eligible sources without rewriting the core system
+- **Provider adapter interface:** Allow new eligible sources, only after policy review
 
 ## 4. Be cooperative at the governance level, too
 - **No lock-in:** users can export their usage history and project contribution records.

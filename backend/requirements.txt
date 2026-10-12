@@ -1,5 +1,6 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-pydantic
+fastapi>=0.110,<1
+uvicorn>=0.29,<1
+sqlalchemy>=2.0,<2.1
+alembic>=1.13,<2
+psycopg2-binary>=2.9,<3
+pydantic>=2,<3

@@ -1,0 +1,6 @@
+# Default rule set; pinned so a parent-directory config is never inherited.
+extend-exclude = ["worker/build"]
+
+[lint.flake8-bugbear]
+# FastAPI idiom: Depends(...) / Query(...) in argument defaults is intentional.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Body", "fastapi.Path"]
