@@ -268,3 +268,12 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 5. **Code:** run the worker against a real Ollama and the real API; load the web UI in a browser and test the job and worker pages.
 6. **Cleanup:** audit `idea.md`, `TODO.md` and the landing page once more for pooling or live-network claims.
 7. **You:** decide whether credits will ever have cash value; if yes, get legal and payment review first.
+
+### Update 9 (2026-10-12, stopped at the 70% usage ceiling)
+
+**Done this round:** retro guardrails (`scripts/check.sh`, pre-commit hook `.githooks/pre-commit`, CI workflow, `AGENTS.md`, `CODING_STANDARDS.md`); orphaned worktrees removed (Suggest.Bike); all work committed and pushed to `origin/main`. Usage mirror `../usage.md` is live (status line writes the 5-hour and 7-day percentages); read it before starting a round.
+
+**I was in the middle of:** nothing half-done. The last action was this log. No uncommitted work remains apart from this file.
+
+**Not verified:** the GitHub CI workflows have never run; the pre-commit hook has never blocked a real commit; no real-device, real-user or real-host testing.
+**Next, first:** talk to prospective consumers and donors before more code; counsel review of `docs/provider-terms.md`; see Update 8.
