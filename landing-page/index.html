@@ -58,11 +58,11 @@
             </div>
             <div class="hidden md:flex items-center gap-8 text-sm font-medium text-coop-muted">
                 <a href="#how-it-works" class="hover:text-coop-offwhite transition-colors">How it Works</a>
-                <a href="#network" class="hover:text-coop-offwhite transition-colors">Network Status</a>
-                <a href="#projects" class="hover:text-coop-offwhite transition-colors">Donation Pool</a>
+                <a href="#network" class="hover:text-coop-offwhite transition-colors">Simulated Demo</a>
+                <a href="#projects" class="hover:text-coop-offwhite transition-colors">Projects</a>
             </div>
             <button class="bg-coop-amber text-coop-charcoal px-4 py-2 rounded-md text-sm font-bold hover:bg-coop-amberDark transition-colors">
-                Connect Worker
+                Worker CLI (not released)
             </button>
         </div>
     </nav>
@@ -91,7 +91,7 @@
             
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button class="w-full sm:w-auto px-8 py-3.5 bg-coop-amber text-coop-charcoal font-bold rounded-lg hover:bg-coop-amberDark transition-colors text-lg">
-                    Download Worker CLI
+                    Worker CLI (not released yet)
                 </button>
                 <button class="w-full sm:w-auto px-8 py-3.5 bg-coop-panel border border-coop-muted/30 text-coop-offwhite font-bold rounded-lg hover:bg-coop-muted/10 transition-colors text-lg">
                     Browse Projects
@@ -127,7 +127,7 @@
                     </div>
                 </div>
                 <div class="bg-coop-panel p-6 rounded-xl border border-coop-muted/10">
-                    <div class="text-coop-muted text-sm font-medium mb-1">SpareCycles Failovers (illustrative)</div>
+                    <div class="text-coop-muted text-sm font-medium mb-1">Jobs Retried (illustrative)</div>
                     <div class="text-3xl font-bold font-mono text-purple-400 flex items-center gap-2">
                         <span id="metric-failover" class="metric-ticker">1,204</span>
                     </div>
@@ -162,7 +162,7 @@
                                     <div class="w-8 h-8 rounded bg-blue-900/50 flex items-center justify-center text-blue-400">MB</div>
                                     <div>
                                         <div class="font-medium text-sm">MusicBrainz Official Web Translation</div>
-                                        <div class="text-xs text-coop-muted">Routing to 430 distributed local workers...</div>
+                                        <div class="text-xs text-coop-muted">Split across donor workers (simulated)</div>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -175,7 +175,7 @@
                                     <div class="w-8 h-8 rounded bg-orange-900/50 flex items-center justify-center text-orange-400">OL</div>
                                     <div>
                                         <div class="font-medium text-sm">OpenLibrary Author Deduplication</div>
-                                        <div class="text-xs text-coop-muted">SpareCycles API Failover Active</div>
+                                        <div class="text-xs text-coop-muted">Waiting for a donor worker (simulated)</div>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -209,7 +209,7 @@
     </main>
 
     <footer class="border-t border-coop-panel py-8 mt-12 text-center text-sm text-coop-muted relative z-10">
-        ReserveMyTokens Cooperative — Built for the Agentic Commons.<br/>Credits are test-only with no cash value until legal and payment review. All figures on this page are illustrative and simulated.
+        ReserveMyTokens Cooperative — Example projects are taken from the public Agentic Commons directory; no partnership exists.<br/>Credits are test-only with no cash value until legal and payment review. All figures on this page are illustrative and simulated.
     </footer>
 
     <!-- Simulation Script -->
@@ -255,7 +255,7 @@
         // Ledger Feed Logic
         const feed = document.getElementById('tx-feed');
         const actions = ["RESERVED", "DONATED", "CONSUMED", "SETTLED"];
-        const providers = ["Ollama/Qwen-Apache2", "Ollama/Mistral-Apache2", "SpareCycles-Pool", "Local-GPU"];
+        const providers = ["Ollama/Qwen-Apache2", "Ollama/Mistral-Apache2", "Ollama/OLMo-Apache2", "Local-GPU"];
         
         function addTransaction() {
             const action = actions[Math.floor(Math.random() * actions.length)];

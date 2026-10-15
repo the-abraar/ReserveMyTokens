@@ -277,3 +277,15 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 
 **Not verified:** the GitHub CI workflows have never run; the pre-commit hook has never blocked a real commit; no real-device, real-user or real-host testing.
 **Next, first:** talk to prospective consumers and donors before more code; counsel review of `docs/provider-terms.md`; see Update 8.
+
+### Update 10 (2026-10-15, agent round)
+
+**Done, and verified by me in this round:**
+- **Postgres.** Started `backend/docker-compose.yml` with a throwaway `POSTGRES_PASSWORD` (Postgres 15). The first boot failed: `alembic upgrade head` could not import `app` in the container. Fixed with `prepend_sys_path = .` in `alembic.ini`, and the db got a healthcheck so the api waits for it. Migrations 0001-0004 apply on Postgres; downgrade to 0001 and back up also works. The whole backend suite (14 tests) passes on Postgres in both normal and reversed file order (`TEST_DATABASE_URL`, see AGENTS.md), and also on SQLite.
+- **Concurrency tests** (`tests/test_concurrency.py`): two workers race one job through the lease endpoint and exactly one wins (any DB); two reservations race one balance and only one succeeds; on Postgres, a worker cannot see a job whose row another transaction holds (`SKIP LOCKED`); and a second spender blocks on the account row lock and then gets refused. A mutation check showed the threaded overdraw race does NOT catch a removed lock (the window is too small); the deterministic row-lock test does.
+- **Rate limit** now lives in a `rate_hits` table (migration 0004, atomic `INSERT ... ON CONFLICT` upsert), so every API process shares it. The sweeper prunes old windows. Tested on both databases.
+- **Web UI** loaded in headless Chrome against the local API on Postgres: login, balance, job submit, job completing after a worker lease plus result, and the worker list all work. I added worker register (token shown once) and revoke, labelled the job form inputs, and deleted the two empty `/dashboard/*` stub routes. `next dev` was writing `web/AGENTS.md`; `agentRules: false` turns that off.
+- **Cleanup:** the landing page no longer shows a "SpareCycles-Pool" provider, SpareCycles failover or "Built for the Agentic Commons", and the worker buttons say the worker is not released. README drops "cryptographically verifiable claim" and the SpareCycles failover claim. In idea.md, LiteLLM and OpenRouter are marked deferred and the reserve example is marked illustrative. The TODO adapter items are struck as out of scope. Credits remain test-only.
+- `scripts/check.sh`: every step passes, including ruff and web-lint, which were previously listed as known failures.
+
+**Still open:** worker trust (the payout still rests on self-reported tokens), demand, counsel review, and the cash-value decision. Those are unchanged from Update 8 items 1-3 and 7. Not done: running the worker against real Ollama, racing two concurrent settles, and running the Postgres suite in CI (it is manual and needs Docker). The web app is one page with no job polling and no receipts view. Nothing is deployed.

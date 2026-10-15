@@ -16,14 +16,14 @@ The development of this cooperative will be orchestrated by the following specia
 ## Phase 1: The Coordinator & Ledger (Weeks 1-4)
 **Assigned to: @agent/backend-coordinator**
 
-- [ ] Initialize the Python FastAPI project and PostgreSQL database using Docker Compose.
+- [x] Initialize the Python FastAPI project and PostgreSQL database using Docker Compose. (compose stack run locally 2026-10-15: migrations 0001-0004 apply on Postgres 15, API answers)
 - [ ] Implement Managed OIDC authentication (with mock/stub for local dev).
 - [x] Design and implement the double-entry PostgreSQL ledger schema (`users`, `ledger_transactions`, `ledger_postings`, `usage_receipts`).
 - [x] Create the Worker registration and revocation API endpoints.
-- [x] Create the Job queue and polling endpoints for the outbound workers. (short poll, SQLite tests only; Postgres/SKIP LOCKED untested)
+- [x] Create the Job queue and polling endpoints for the outbound workers. (short poll; suite passes on SQLite and Postgres, incl. a two-worker lease race and a SKIP LOCKED test)
 - [ ] Implement the core `ModelProvider` adapter interface.
-- [ ] Build the OpenRouter / LiteLLM adapter for fallback API inference.
-- [ ] **SpareCycles Integration**: Add an adapter for the SpareCycles OpenAI-compatible endpoint (route donated capacity to/from their network).
+- ~~Build the OpenRouter / LiteLLM adapter for fallback API inference.~~ Deferred, out of v1 scope: routes hosted-API or third-party capacity, which `docs/provider-terms.md` does not allow (judge.md blocker 3).
+- ~~**SpareCycles Integration**: Add an adapter for the SpareCycles OpenAI-compatible endpoint (route donated capacity to/from their network).~~ Deferred, out of v1 scope: routes hosted-API or third-party capacity, which `docs/provider-terms.md` does not allow (judge.md blocker 3).
 
 ## Phase 2: The Contributor CLI Worker (Weeks 3-5)
 **Assigned to: @agent/worker-cli**
@@ -38,9 +38,9 @@ The development of this cooperative will be orchestrated by the following specia
 ## Phase 3: The Web Dashboard (Weeks 5-8)
 **Assigned to: @agent/frontend-ui**
 
-- [ ] Initialize the Next.js frontend application.
-- [ ] Build the **Contributor Dashboard**: view earned credits, registered workers, and connection status.
-- [ ] Build the **Consumer Dashboard**: input prompts, estimate credit costs, and view task outputs/receipts.
+- [x] Initialize the Next.js frontend application. (single page; loaded in headless Chrome against the local API 2026-10-15)
+- [ ] Build the **Contributor Dashboard**: view earned credits, registered workers, and connection status. (balance, worker register/revoke work on the home page; no connection status)
+- [ ] Build the **Consumer Dashboard**: input prompts, estimate credit costs, and view task outputs/receipts. (submit and outputs work; no estimate, no receipts view)
 - [ ] Build the **Donation & Open-Source Registry**: list verified projects, show funding budgets, and allow users to allocate their reserve credits.
 - [ ] Integrate OIDC login with the FastAPI coordinator.
 
@@ -48,9 +48,9 @@ The development of this cooperative will be orchestrated by the following specia
 **Assigned to: @agent/security-auditor**
 
 - [ ] Verify Boundary A: Ensure no local API keys are transmitted to the coordinator.
-- [ ] Verify Boundary B & C: Audit FastAPI endpoints for rate-limiting, idempotency keys, and prompt-leakage (ensure prompts aren't logged).
+- [ ] Verify Boundary B & C: Audit FastAPI endpoints for rate-limiting, idempotency keys, and prompt-leakage (ensure prompts aren't logged). (rate limit now in the database, shared across processes, tested; no full audit)
 - [ ] Verify Boundary D: Ensure the worker only accepts inference jobs (rejects arbitrary shell execution).
-- [ ] Test double-entry ledger constraints (no negative balances from concurrent requests, no double settlement). (balanced postings, double settle, overdraw tested sequentially on SQLite; concurrency untested)
+- [ ] Test double-entry ledger constraints (no negative balances from concurrent requests, no double settlement). (balanced postings and double settle tested; concurrent overdraw tested on Postgres via the account row lock; concurrent settle not raced)
 - [ ] Write integration tests for the end-to-end flow: `CLI -> Coordinator -> Ledger -> Web Dashboard`.
 
 ## Phase 5: The Pilot (Weeks 11-12)

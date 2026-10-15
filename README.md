@@ -10,11 +10,11 @@ Instead of letting your local GPU sit idle, you can run an open-weight model (Ap
 
 ## 🌟 The Vision
 
-*   **Reserve:** Contribute local open-weight inference capacity today, and earn a cryptographically verifiable claim on future network capacity.
+*   **Reserve:** Contribute local open-weight inference capacity today, and earn test credits toward future capacity. Contributions are not yet verified: credits are paid on worker-reported token counts (signed receipts are planned, not built).
 *   **Donate:** Directly fund public-good projects (like Wikipedia maintainers, Open Food Facts, etc.) by routing your unused capacity to their tasks.
 *   **Interoperate:** We aren't trying to replace OpenRouter or LiteLLM. We act as a cooperative ledger layer. 
 
-We play well with others! If a project runs out of donated capacity in our network, we seamlessly failover to [SpareCycles](https://sparecycles.io) to keep their tasks alive. We also source our verified open-source projects directly from the [Agentic Commons](https://agentic-commons.org) directory.
+Planned, not built: failover to [SpareCycles](https://sparecycles.io) when local capacity runs out, pending their written confirmation and a provider-terms check. The seed project list is fetched from the public [Agentic Commons](https://agentic-commons.org) directory; there is no partnership.
 
 ---
 
@@ -29,14 +29,14 @@ The MVP is split into three core components:
 1.  **`backend/` (The Coordinator & Ledger)**
     *   A Python FastAPI application that acts as the central coordinator.
     *   A PostgreSQL database maintaining an immutable, double-entry ledger for credit accounting.
-    *   Handles Job queueing, worker registration, and API provider failovers.
+    *   Handles job queueing, leasing and worker registration. No hosted-API providers or failover.
 2.  **`worker/` (The Contributor CLI)**
     *   A lightweight Python CLI that contributors run on their local machines.
     *   Establishes an outbound connection to the Coordinator (no inbound port forwarding required).
     *   Integrates with local models (via Ollama) and manages usage receipts safely.
 3.  **`web/` (The Next.js Dashboard)**
     *   The frontend interface for Contributors, Consumers, and Open-Source Projects.
-    *   View your reserve balance, manage your worker nodes, and allocate donations to the public-good pool.
+    *   Today: view your test-credit balance, submit jobs, and register or revoke workers. Project donations are not built.
 
 ---
 

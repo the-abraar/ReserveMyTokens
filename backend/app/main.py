@@ -6,6 +6,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import ratelimit
 from .routers import jobs, users, workers
 
 
@@ -16,6 +17,7 @@ async def _sweep(interval: float):
     def once():
         with SessionLocal() as db:
             workers.reap_expired(db, now())
+            ratelimit.prune(db)
     while True:
         try:
             await asyncio.to_thread(once)

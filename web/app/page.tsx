@@ -22,6 +22,7 @@ export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [err, setErr] = useState("");
+  const [newToken, setNewToken] = useState("");
 
   const call = useCallback(async (path: string, init?: RequestInit) => {
     const r = await fetch(API + path, { ...init, headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" } });
@@ -55,6 +56,24 @@ export default function Home() {
     } catch (e) { setErr(String(e)); }
   }
 
+  async function addWorker(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    try {
+      const w = await call("/workers", { method: "POST", body: JSON.stringify({ name: new FormData(e.currentTarget).get("name") }) });
+      setNewToken(`Worker #${w.id} token (shown once, copy it now): ${w.token}`);
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+
+  async function revoke(id: number) {
+    try {
+      // DELETE returns 204 with no body, so it bypasses call()'s r.json().
+      const r = await fetch(`${API}/workers/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${key}` } });
+      if (!r.ok) throw new Error(String(r.status));
+      await refresh();
+    } catch (e) { setErr(String(e)); }
+  }
+
   if (!key) return (
     <main style={{ maxWidth: 480, margin: "4rem auto", padding: 16 }}>
       <h1>ReserveMyTokens</h1>
@@ -76,15 +95,20 @@ export default function Home() {
       <p>{bal ? `${bal.available} available, ${bal.held} held (test credits)` : "..."}</p>
       <h2>Submit job</h2>
       <form onSubmit={submit} style={{ display: "grid", gap: 8 }}>
-        <input name="model" placeholder="model" required />
-        <textarea name="prompt" placeholder="prompt" required />
-        <input name="max_tokens" type="number" min={1} max={4096} defaultValue={100} required />
+        <input name="model" aria-label="Model" placeholder="model" required />
+        <textarea name="prompt" aria-label="Prompt" placeholder="prompt" required />
+        <input name="max_tokens" aria-label="Max tokens" type="number" min={1} max={4096} defaultValue={100} required />
         <button>Submit</button>
       </form>
       <h2>Jobs</h2>
       <ul>{jobs.map((j) => <li key={j.id}>#{j.id} {j.model} [{j.status}] {j.output ?? ""}</li>)}</ul>
       <h2>Workers</h2>
-      <ul>{workers.map((w) => <li key={w.id}>#{w.id} {w.name}{w.revoked ? " (revoked)" : ""}</li>)}</ul>
+      <form onSubmit={addWorker}>
+        <input name="name" aria-label="Worker name" placeholder="worker name" maxLength={64} required />{" "}
+        <button>Register worker</button>
+      </form>
+      {newToken && <p role="status"><code>{newToken}</code></p>}
+      <ul>{workers.map((w) => <li key={w.id}>#{w.id} {w.name}{w.revoked ? " (revoked)" : <> <button onClick={() => revoke(w.id)}>Revoke</button></>}</li>)}</ul>
     </main>
   );
 }

@@ -124,7 +124,7 @@ A local model might not report token counts or costs in the same way as a hosted
 Do not store just a mutable field like `users.balance = 120`.
 Build an append-only, double-entry ledger. Every transfer of value is recorded as balanced postings, and corrections are new transactions rather than edits to historical records.
 
-**Example: how the reserve bank works**
+**Example: how the reserve bank works** (illustrative; credits are test-only and no conversion policy exists)
 Suppose a contributor provides a verified unit of eligible capacity worth 100 credits under the published conversion policy.
 - *Contribution settled:* +100 to Contributor's available balance, +100 to Network's outstanding obligation.
 - *Consumer spends 30 credits:* +100 for contributor, Reduced by 30 of the settled reserve obligation, with 30 credited to the consumed-resource account.
@@ -211,7 +211,7 @@ Invite 10–30 trusted contributors. Add vetted open-source projects. Measure su
 - A complete audit trail for credit adjustments.
 
 ## 8. The business and governance model
-Start with three pools:
+Start with three ledger pools (account groups, not pooled keys or subscriptions; none is built yet):
 1. **Reserve pool:** eligible contributions earn credits redeemable for future capacity.
 2. **Public-good pool:** voluntary donations fund approved open-source tasks.
 3. **Platform reserve:** capacity or financial resources explicitly set aside to support redemptions and absorb operational failures.
@@ -231,23 +231,23 @@ The first demo should prove four things:
 **ReserveMyTokens: An AI capacity cooperative**
 *Give when idle. Use when needed. Donate what matters.*
 
-The brand should communicate a reserve, a shared resource pool, and trust. Minimal technical identity: charcoal, warm amber and off-white.
+The brand should communicate a reserve of donor-run local capacity, and trust. Minimal technical identity: charcoal, warm amber and off-white.
 
 **The core product language:**
 - **Reserve** — contribute local open-weight capacity and earn test credits.
 - **Redeem** — spend credits on available network capacity.
 - **Donate** — direct capacity to approved public-good projects.
-- **Connect** — integrate tools and compatible resource providers.
+- **Connect** — integrate tools (other resource providers only after policy review; none today).
 
 ## 2. Make it play well with existing tools
-- **LiteLLM:** Use it or integrate with its compatible interface for provider adapters, standardized model requests and routing.
-- **OpenRouter:** Treat it as a potential upstream provider and integration partner, not an opponent to replace.
+- **LiteLLM:** Deferred. Its client-side interface may be reused later; routing hosted APIs or donated keys through it is out of scope (see Supply policy).
+- **OpenRouter:** Deferred. A possible upstream only on the platform's own paid account under a written agreement, never contributor keys.
 - **Ollama:** Use it as the initial local-model worker backend.
 
 *The integration principle is simple: reuse existing interfaces, but keep ReserveMyTokens' ledger and contribution rules independent.*
 
 ## 3. The interoperability contract
-Publish a small, versioned integration specification from the beginning.
+Publish a small, versioned integration specification from the beginning. None of the items below exists yet.
 - **OpenAI-compatible inference API:** Let compatible clients use eligible ReserveMyTokens capacity
 - **Worker protocol:** Allow third parties to contribute approved local inference capacity
 - **Usage receipt schema:** Standardize job IDs, provider/model identity, metering and settlement evidence

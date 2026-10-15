@@ -6,7 +6,7 @@ from app.main import app
 from app.models import Job, JobAttempt, LedgerPosting
 from app.models.ledger import now
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 
 c = TestClient(app)
 n = [0]
@@ -105,6 +105,24 @@ def test_rate_limit(monkeypatch):
     assert c.post("/jobs", json={"model": "m", "prompt": "p", "max_tokens": 1}, headers=other).status_code == 201
     w = worker(contrib)
     assert [lease(w).status_code in (200, 204), lease(w).status_code] == [True, 429]
+
+
+def test_rate_limit_is_shared_through_the_database(monkeypatch):
+    """The count lives in rate_hits, not process memory, so another API process sees the same hits."""
+    monkeypatch.setitem(ratelimit.LIMITS, "submit", 2)
+    cons = user(1000)
+    for _ in range(2):
+        assert c.post("/jobs", json={"model": "m", "prompt": "p", "max_tokens": 1}, headers=cons).status_code == 201
+    with SessionLocal() as db:
+        assert db.execute(text("SELECT hits FROM rate_hits WHERE bucket = 'submit'")).scalar_one() == 2
+        db.execute(text("UPDATE rate_hits SET minute = minute - 1"))  # age the window: next hit starts a new one
+        db.commit()
+    assert c.post("/jobs", json={"model": "m", "prompt": "p", "max_tokens": 1}, headers=cons).status_code == 201
+    with SessionLocal() as db:
+        db.execute(text("UPDATE rate_hits SET minute = minute - 1"))
+        db.commit()
+        ratelimit.prune(db)
+        assert db.scalar(text("SELECT count(*) FROM rate_hits")) == 0
 
 
 def test_verifier_share_paid_with_balanced_postings(monkeypatch):
