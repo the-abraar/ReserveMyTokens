@@ -31,6 +31,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String, unique=True)
     api_key_hash: Mapped[str] = mapped_column(String, unique=True)
+    oidc_issuer: Mapped[str | None] = mapped_column(String)  # (issuer, subject) unique: migration 0005
+    oidc_subject: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
 
 
@@ -51,6 +53,9 @@ class Worker(Base):
     token_hash: Mapped[str] = mapped_column(String, unique=True)
     revoked_at: Mapped[datetime | None] = mapped_column(TS)
     disputes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    public_key: Mapped[str | None] = mapped_column(String)  # base64 Ed25519; signs usage receipts, set once
+    last_seen_at: Mapped[datetime | None] = mapped_column(TS)
+    models: Mapped[str | None] = mapped_column(String)  # comma-joined, as advertised on the last lease call
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
 
 
@@ -70,6 +75,7 @@ class Job(Base):
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
     temperature: Mapped[float] = mapped_column(Float, default=0, server_default="0")
     redundant: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    idempotency_key: Mapped[str | None] = mapped_column(String)  # unique per consumer: migration 0005
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
 
 
@@ -86,6 +92,7 @@ class JobAttempt(Base):
     completion_tokens: Mapped[int | None] = mapped_column(Integer)
     eval_duration_ns: Mapped[int | None] = mapped_column(BigInt)
     flagged: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    signature: Mapped[str | None] = mapped_column(String)  # worker's Ed25519 signature over app.receipts.payload
 
 
 class LedgerTransaction(Base):
@@ -120,4 +127,18 @@ class UsageReceipt(Base):
     eval_duration_ns: Mapped[int] = mapped_column(BigInt, default=0)
     charged: Mapped[int] = mapped_column(BigInt)
     tx_id: Mapped[int] = mapped_column(ForeignKey("ledger_transactions.id"))
+    created_at: Mapped[datetime] = mapped_column(TS, default=now)
+
+
+class Project(Base):
+    """Open-source project in the donation registry. Donations go to its own `project_budget` account and are
+    irrevocable. verified_at is set by an admin after moderation; only verified projects are listed or funded."""
+    __tablename__ = "projects"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    url: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(Text)
+    maintainer_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), unique=True)
+    verified_at: Mapped[datetime | None] = mapped_column(TS)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)

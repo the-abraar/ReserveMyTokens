@@ -10,7 +10,7 @@ Instead of letting your local GPU sit idle, you can run an open-weight model (Ap
 
 ## 🌟 The Vision
 
-*   **Reserve:** Contribute local open-weight inference capacity today, and earn test credits toward future capacity. Contributions are not yet verified: credits are paid on worker-reported token counts (signed receipts are planned, not built).
+*   **Reserve:** Contribute local open-weight inference capacity today, and earn test credits toward future capacity. Contributions are not yet verified: credits are paid on worker-reported token counts. Workers sign their usage receipts (Ed25519), which shows who claimed what but does not make the numbers true.
 *   **Donate:** Directly fund public-good projects (like Wikipedia maintainers, Open Food Facts, etc.) by routing your unused capacity to their tasks.
 *   **Interoperate:** We aren't trying to replace OpenRouter or LiteLLM. We act as a cooperative ledger layer. 
 
@@ -36,7 +36,7 @@ The MVP is split into three core components:
     *   Integrates with local models (via Ollama) and manages usage receipts safely.
 3.  **`web/` (The Next.js Dashboard)**
     *   The frontend interface for Contributors, Consumers, and Open-Source Projects.
-    *   Today: view your test-credit balance, submit jobs, and register or revoke workers. Project donations are not built.
+    *   Today: OIDC or API-key login, test-credit balance, cost estimate, job submit with live status, usage receipts, worker register/revoke with online status, and the open-source project registry with donations. Spending a project's donated budget is not built.
 
 ---
 
@@ -67,10 +67,20 @@ Navigate to the `worker/` directory and install the CLI in editable mode:
 cd worker
 pip install -e .
 ```
-Run the worker using the mapped entrypoint:
+Register a worker on the dashboard, then store its token in the OS keychain and start serving local Ollama models:
 ```bash
-rmt-worker --help
+rmt-worker login --worker-id <id>      # prompts for the token; also registers a receipt-signing key
+rmt-worker start --worker-id <id> --max-compute-hours 2 --max-tokens-per-day 50000
+rmt-worker stop                        # kill switch, from another terminal
 ```
+
+### 4. Local OIDC login (dev only)
+The coordinator ships a stub identity provider for local development. It answers 404 unless both variables below are set:
+```bash
+RMT_ENV=dev OIDC_STUB=1 OIDC_ISSUER=http://localhost:8000/oidc-stub uvicorn app.main:app   # in backend/
+NEXT_PUBLIC_OIDC_ISSUER=http://localhost:8000/oidc-stub npm run dev                        # in web/
+```
+For a real provider, set `OIDC_ISSUER` (https only outside dev) and `OIDC_AUDIENCE` (its client id) on the coordinator, and `NEXT_PUBLIC_OIDC_ISSUER` / `NEXT_PUBLIC_OIDC_CLIENT_ID` on the web app. With `OIDC_ISSUER` set outside dev, API-key signup (`POST /users`) is closed.
 
 ---
 

@@ -19,6 +19,8 @@ services:
     environment:
       DATABASE_URL: postgresql://rmt:${POSTGRES_PASSWORD}@db:5432/reserve_db
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-rmt-web}
     depends_on:
       db:
         condition: service_healthy

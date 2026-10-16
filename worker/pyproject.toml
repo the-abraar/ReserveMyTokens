@@ -11,9 +11,11 @@ authors = [
 ]
 dependencies = [
     "click>=8.0.0",
-    "requests>=2.25.0"
+    "requests>=2.25.0",
+    "keyring>=24",
+    "cryptography>=42"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 
 [project.scripts]
 rmt-worker = "reserve_my_tokens_worker.cli:main"

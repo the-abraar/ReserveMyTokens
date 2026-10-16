@@ -28,7 +28,9 @@ def post(db: Session, kind: str, key: str, postings: list[tuple[int, int]], ref_
 
 def spend(db: Session, src: int, dst: int, amount: int, kind: str, key: str, ref_job_id=None):
     """Move `amount` src->dst, refusing to overdraw src. Row lock serializes spenders on Postgres
-    (SQLite serializes writers anyway)."""
+    (SQLite serializes writers anyway). A replayed key is a no-op even if src has since been spent down."""
+    if db.scalar(select(LedgerTransaction.id).where(LedgerTransaction.idempotency_key == key)):
+        return None
     db.execute(select(Account.id).where(Account.id == src).with_for_update()).one()
     if balance(db, src) < amount:
         raise InsufficientFunds

@@ -289,3 +289,38 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 - `scripts/check.sh`: every step passes, including ruff and web-lint, which were previously listed as known failures.
 
 **Still open:** worker trust (the payout still rests on self-reported tokens), demand, counsel review, and the cash-value decision. Those are unchanged from Update 8 items 1-3 and 7. Not done: running the worker against real Ollama, racing two concurrent settles, and running the Postgres suite in CI (it is manual and needs Docker). The web app is one page with no job polling and no receipts view. Nothing is deployed.
+
+### Update 11 (2026-10-16, agent round; nothing committed)
+
+**Done, and verified by me in this round** (`scripts/check.sh` passes all steps: backend 32 passed and 2 Postgres-only skips, in both file orders; worker 20 passed; web lint and build. On Postgres 15 in Docker the backend suite gives 34 passed in both orders, and migration 0005 downgrades and re-applies on Postgres and SQLite):
+- **OIDC.** The coordinator accepts an RS256 ID token from `OIDC_ISSUER` as a bearer token, verified against the issuer's JWKS (refetched at most hourly), and maps (iss, sub) to a user on first login. A dev-only stub issuer (`app/oidc.py`, code + PKCE) answers 404 unless `OIDC_STUB=1` and `RMT_ENV=dev`. Outside dev, a plain-http issuer is refused and API-key signup (`POST /users`) closes once `OIDC_ISSUER` is set. Tests cover forged, unsigned, wrong-audience and replayed-code cases. The web app logs in through the same flow, checked in headless Chrome. No real managed provider is wired yet, and there is no MFA or refresh token.
+- **Worker CLI.** `rmt-worker login` stores the token and a new Ed25519 signing key in the OS keychain (one real macOS Keychain round-trip, then deleted) and registers the public key. `start` long-polls (`?wait=`, at most 25 s) and enforces local limits: compute hours and completion tokens per rolling 24 h, plus a kill-switch file (`rmt-worker stop`). The wheel builds and runs from a clean venv. There is no brew formula.
+- **`ModelProvider`** is an ABC in `worker/.../provider.py` that the Ollama adapter implements. Pricing stays on the server (`GET /estimate`).
+- **Signed receipts.** Once a worker has a key, an unsigned or mismatched result gets a 400 before the job is claimed, and signed numbers cannot be inflated. `GET /jobs/{id}/receipt` returns the payload, signature and key. This proves who made the claim. It does not prove the claim is true: payouts still rest on self-reported tokens (blocker 2 is unchanged).
+- **Dashboard.** Worker online status, last seen time, models and jobs settled; a cost estimate with the count of online workers; auto-refresh while jobs run; a receipt view; and a `/projects` registry with donations. Donations are idempotent, irrevocable transfers to a per-project ledger account, and an admin verifies projects. All of this was clicked through in headless Chrome against a local API: OIDC login, worker register, estimate, job, receipt, propose, verify, donate, and the final balance.
+- **Boundaries.** A: a test runs login and serve with host API-key environment variables set and asserts that only the worker token, the public key and the result leave the machine. D: the worker refuses jobs with unknown fields, wrong types or an unoffered model, and an AST test bans exec-style calls in the worker package. B and C: see the table. The e2e test asserts that the prompt and output do not appear in the coordinator's debug log or the worker's logs, and a mutation that logs the prompt fails it.
+- **Races.** Concurrent duplicate results settle exactly once, and a late result racing the lease reaper either settles or refunds, never both. Both run on SQLite and Postgres. A mutation that removes the settle compare-and-set fails the duplicate race test.
+- **End to end.** `tests/test_e2e.py` starts real uvicorn and covers OIDC over HTTP, the CLI, an HTTP fake of the Ollama API, the ledger checks and the dashboard's API calls. The pilot simulation runs 10 dummy contributor nodes and 2 consumers: all 20 jobs settle once, consumer spend equals contributor earnings, and the ledger balances. The test is in check.sh, and it needs a free localhost port.
+
+**Endpoint audit (Boundary B/C):**
+
+| Endpoint | Auth | Rate limit | Idempotency | Cap |
+|---|---|---|---|---|
+| `POST /users` | none (closed when OIDC is set outside dev) | **none** | n/a | username 64 |
+| `GET /users/me`, `/users/me/balance` | user | none | read | - |
+| `POST /admin/fund`, `/admin/projects/{id}/verify` | admin token | none | key required / compare-and-set | - |
+| `POST /jobs` | user | 30/min | `Idempotency-Key` (new; optional) | prompt 20k, max_tokens 4096 |
+| `GET /jobs`, `/jobs/{id}`, `/jobs/{id}/receipt`, `/estimate` | user (own jobs only) | none | read | list 50 |
+| `POST /workers` | user | none | n/a | **20 active per user (new)** |
+| `GET /workers`, `DELETE /workers/{id}` | user (own) | none | revoke is idempotent | list 200 |
+| `PUT /workers/{id}/public_key` | worker | none | set once (compare-and-set) | 100 chars |
+| `POST /workers/{id}/lease` | worker | 120/min | lease compare-and-set | wait 25 s, models 100 |
+| `POST /jobs/{id}/result` | worker holding the lease | none | compare-and-set + ledger key | output 200k, 1 receipt per job |
+| `GET /projects` | none (public registry) | none | read | list 100 |
+| `POST /projects` | user | **none** | name unique | name 100, description 1000 |
+| `POST /projects/{id}/donations` | user | none | key required | amount 1e9 |
+| `/oidc-stub/*` | none (it is the IdP; dev only) | none | single-use codes | form 10 KB |
+
+**Not done, and why:** the Ollama adapter has never run against real Ollama, because Ollama is not installed here; it ran only against mocks and an HTTP fake. Staging deploy, beta-tester packaging and distribution, a real OIDC provider, and reconciling real provider bills all need a human or an outside account.
+
+**Still open:** worker trust (blocker 2), demand, counsel review and the cash-value decision are unchanged. `POST /users` and `POST /projects` have no rate limit. Prompts are stored until the job finishes and outputs are kept, so Boundary C ("do not persist") is only partly met. Limit counters reset when the worker restarts. Long-poll holds one server thread per waiting worker. The stub's signing key and auth codes are per process, which is fine only for dev. A user's own worker can serve that user's non-redundant jobs, which nets to zero credits. Spending a project's donated budget is not built.

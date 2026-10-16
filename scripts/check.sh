@@ -20,7 +20,7 @@ step() { # name cmd...
 
 setup_venv() {
   [ -x "$VENV/bin/python" ] || "$PY" -m venv "$VENV"
-  "$VENV/bin/pip" install -q -r backend/requirements-dev.txt ruff "click>=8" "requests>=2.25" 2>&1 | tail -3
+  "$VENV/bin/pip" install -q -r backend/requirements-dev.txt ruff "click>=8" "requests>=2.25" "keyring>=24" "cryptography>=42" 2>&1 | tail -3
 }
 stray() { ! find . \( -name node_modules -o -name .venv -o -name .git -o -name .next -o -name build \) -prune -o \
   -type f \( -name '*-e' -o -name '*.orig' -o -name '*.rej' -o -name '*.bak' \) -print | grep .; }

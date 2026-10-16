@@ -1,11 +1,13 @@
 import os
 import random
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .. import receipts
 from ..auth import current_user, current_worker
 from ..database import get_db
 from ..ledger import InsufficientFunds, post, spend
@@ -30,6 +32,7 @@ class Result(BaseModel):
     prompt_tokens: int = Field(ge=0)
     completion_tokens: int = Field(ge=0)
     eval_duration_ns: int = Field(ge=0, default=0)
+    signature: str | None = Field(None, max_length=200)  # required once the worker registered a public key
 
 
 def view(j: Job):
@@ -59,14 +62,24 @@ def list_jobs(u: User = Depends(current_user), db: Session = Depends(get_db)):
 
 
 @router.post("/jobs", status_code=201, dependencies=[Depends(limit("submit"))])
-def create_job(body: NewJob, u: User = Depends(current_user), db: Session = Depends(get_db)):
+def create_job(body: NewJob, idempotency_key: str = Header("", max_length=200), u: User = Depends(current_user),
+               db: Session = Depends(get_db)):
+    """An Idempotency-Key header makes a retried submit return the first job instead of reserving twice."""
+    key = idempotency_key.strip() or None
+    same = select(Job).where(Job.consumer_user_id == u.id, Job.idempotency_key == key)
+    if key and (prior := db.scalar(same)):
+        return view(prior)
     avail, held = user_account(db, u.id, "user_available"), user_account(db, u.id, "user_held")
-    j = Job(consumer_user_id=u.id, model=body.model, prompt=body.prompt, max_tokens=body.max_tokens,
+    j = Job(consumer_user_id=u.id, model=body.model, prompt=body.prompt, max_tokens=body.max_tokens, idempotency_key=key,
             reserved=body.max_tokens * PRICE_PER_TOKEN, temperature=body.temperature,
             # Redundancy only for temperature 0: sampled outputs legitimately differ, so exact match is meaningless.
             redundant=body.temperature == 0 and random.random() < redundancy_prob())
     db.add(j)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:  # a concurrent retry with the same key got there first
+        db.rollback()
+        return view(db.scalar(same))
     try:
         spend(db, avail.id, held.id, j.reserved, "reserve", f"job:{j.id}:reserve", j.id)
     except InsufficientFunds:
@@ -84,6 +97,21 @@ def get_job(job_id: int, u: User = Depends(current_user), db: Session = Depends(
     return view(j)
 
 
+@router.get("/jobs/{job_id}/receipt")
+def get_receipt(job_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Auth: the job's consumer. `payload` is what the worker signed; check it with `worker_public_key` (Ed25519)."""
+    j = db.get(Job, job_id)
+    rc = j and j.consumer_user_id == u.id and db.scalar(select(UsageReceipt).where(UsageReceipt.job_id == job_id))
+    if not rc:
+        raise HTTPException(404, "not found")
+    att, w = db.get(JobAttempt, rc.attempt_id), db.get(Worker, rc.worker_id)
+    data = receipts.payload(j.id, w.id, att.output or "", rc.prompt_tokens, rc.completion_tokens, rc.eval_duration_ns)
+    return {"job_id": j.id, "worker_id": w.id, "model": j.model, "prompt_tokens": rc.prompt_tokens,
+            "completion_tokens": rc.completion_tokens, "eval_duration_ns": rc.eval_duration_ns, "charged": rc.charged,
+            "usage_source": "worker_reported", "signed": bool(att.signature), "signature": att.signature,
+            "worker_public_key": w.public_key, "payload": data.decode(), "created_at": rc.created_at.isoformat()}
+
+
 @router.post("/jobs/{job_id}/result")
 def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker), db: Session = Depends(get_db)):
     j = db.get(Job, job_id)
@@ -91,6 +119,9 @@ def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker)
         raise HTTPException(404, "not found")
     if j.status == "completed":
         return {"status": "completed", "settled": False}  # idempotent replay
+    data = receipts.payload(j.id, w.id, body.output, body.prompt_tokens, body.completion_tokens, body.eval_duration_ns)
+    if w.public_key and not receipts.verify(w.public_key, body.signature, data):  # checked before the job is claimed
+        raise HTTPException(400, "missing or invalid receipt signature")
     att = db.scalar(select(JobAttempt).where(JobAttempt.job_id == j.id, JobAttempt.worker_id == w.id)
                     .order_by(JobAttempt.id.desc()))
     # First finished run of a redundant job, if any, from a different worker.
@@ -102,11 +133,12 @@ def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker)
     # Claim with compare-and-set: only one concurrent submit can move the job out of leased.
     r = db.execute(update(Job).where(Job.id == job_id, Job.status == "leased", Job.worker_id == w.id)
                    .values(status=new_status, output=body.output if new_status == "completed" else None,
+                           **({} if new_status == "queued" else {"prompt": ""}),  # Boundary C: drop the prompt once terminal
                            **({"worker_id": None, "lease_expires_at": None} if new_status == "queued" else {})))
     if r.rowcount != 1:
         return {"status": j.status, "settled": False}
-    att.output, att.prompt_tokens, att.completion_tokens, att.eval_duration_ns = (
-        body.output, body.prompt_tokens, body.completion_tokens, body.eval_duration_ns)
+    att.output, att.prompt_tokens, att.completion_tokens, att.eval_duration_ns, att.signature = (
+        body.output, body.prompt_tokens, body.completion_tokens, body.eval_duration_ns, body.signature)
     if new_status == "queued":  # wait for a second, different worker (lease skips workers with a finished attempt)
         db.commit()
         return {"status": "awaiting_verification", "settled": False}

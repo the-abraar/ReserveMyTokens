@@ -6,8 +6,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import ratelimit
-from .routers import jobs, users, workers
+from . import oidc, ratelimit
+from .routers import jobs, projects, users, workers
 
 
 async def _sweep(interval: float):
@@ -42,6 +42,8 @@ app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "http
 app.include_router(users.router)
 app.include_router(workers.router)
 app.include_router(jobs.router)
+app.include_router(projects.router)
+app.include_router(oidc.stub)  # 404 unless OIDC_STUB=1 and RMT_ENV=dev
 
 
 @app.get("/")

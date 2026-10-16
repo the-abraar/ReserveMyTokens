@@ -97,3 +97,67 @@ def test_skip_locked_hides_a_job_another_worker_is_claiming():
         holder.rollback()
     assert TestClient(app).post(f"/workers/{b[0]}/lease", json={"models": ["m"]}, headers=b[1]).status_code == 200
 
+
+
+def _settle_counts(jid):
+    from app.models import LedgerPosting, LedgerTransaction
+    with SessionLocal() as db:
+        kinds = [k for (k,) in db.execute(select(LedgerTransaction.kind).where(LedgerTransaction.ref_job_id == jid))]
+        total = db.scalar(select(func.sum(LedgerPosting.amount)))
+    return kinds, total
+
+
+def test_concurrent_duplicate_results_settle_exactly_once():
+    """A worker's retry storm: the same result posted twice at once. One settles; the other is a no-op 200."""
+    for i in range(5):  # several rounds widen the chance of a true overlap
+        _duplicate_round(i)
+
+
+def _duplicate_round(i):
+    cons, contrib = user(1000), user()
+    w = worker(contrib)
+    jid = TestClient(app).post("/jobs", json={"model": "m", "prompt": f"p{i}", "max_tokens": 50}, headers=cons).json()["id"]
+    TestClient(app).post(f"/workers/{w[0]}/lease", json={"models": ["m"]}, headers=w[1])
+    res = {"output": "o", "prompt_tokens": 1, "completion_tokens": 20}
+    ca, cb = TestClient(app), TestClient(app)
+    out = race(lambda: ca.post(f"/jobs/{jid}/result", json=res, headers=w[1]),
+               lambda: cb.post(f"/jobs/{jid}/result", json=res, headers=w[1]))
+    assert [r.status_code for r in out] == [200, 200]
+    assert sorted(r.json()["settled"] for r in out) == [False, True]
+    kinds, total = _settle_counts(jid)
+    assert kinds.count("settle") == 1 and total == 0
+    assert bal(contrib) == {"available": 20, "held": 0} and bal(cons) == {"available": 980, "held": 0}
+
+
+def test_result_racing_lease_expiry_never_both_settles_and_refunds():
+    """The sweeper reaps an expired lease while the worker's late result arrives: exactly one of them wins."""
+    from datetime import timedelta
+
+    from app.models.ledger import now
+    from app.routers.workers import reap_expired
+    from sqlalchemy import update
+
+    def one(i):
+        cons, contrib = user(1000), user()
+        w = worker(contrib)
+        jid = TestClient(app).post("/jobs", json={"model": "m", "prompt": f"q{i}", "max_tokens": 50}, headers=cons).json()["id"]
+        with SessionLocal() as db:
+            db.execute(update(Job).where(Job.id == jid).values(max_attempts=1))
+            db.commit()
+        TestClient(app).post(f"/workers/{w[0]}/lease", json={"models": ["m"]}, headers=w[1])
+        with SessionLocal() as db:
+            db.execute(update(Job).where(Job.id == jid).values(lease_expires_at=now() - timedelta(seconds=1)))
+            db.commit()
+
+        def reap():
+            with SessionLocal() as db:
+                reap_expired(db, now())
+        ca = TestClient(app)
+        race(lambda: ca.post(f"/jobs/{jid}/result", json={"output": "o", "prompt_tokens": 1, "completion_tokens": 20},
+                             headers=w[1]), reap)
+        kinds, total = _settle_counts(jid)
+        assert total == 0 and sorted(set(kinds) - {"reserve"}) in (["settle"], ["refund"]), kinds
+        expected = {"available": 980, "held": 0} if "settle" in kinds else {"available": 1000, "held": 0}
+        assert bal(cons) == expected
+    for i in range(5):
+        one(i)

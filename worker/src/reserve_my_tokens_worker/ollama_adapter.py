@@ -1,9 +1,13 @@
 import requests
 
+from .provider import ModelProvider
 
-class OllamaAdapter:
+
+class OllamaAdapter(ModelProvider):
+    name = "ollama"
+
     def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
+        self.base_url = base_url.rstrip("/")
 
     def detect_models(self) -> list[str]:
         r = requests.get(f"{self.base_url}/api/tags", timeout=10)
