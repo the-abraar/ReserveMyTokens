@@ -108,7 +108,7 @@ def _settle_counts(jid):
 
 
 def test_concurrent_duplicate_results_settle_exactly_once():
-    """A worker's retry storm: the same result posted twice at once. One settles; the other is a no-op 200."""
+    """A worker's retry storm: the same result posted 6 times at once. One settles; the rest are no-op 200s."""
     for i in range(5):  # several rounds widen the chance of a true overlap
         _duplicate_round(i)
 
@@ -119,11 +119,39 @@ def _duplicate_round(i):
     jid = TestClient(app).post("/jobs", json={"model": "m", "prompt": f"p{i}", "max_tokens": 50}, headers=cons).json()["id"]
     TestClient(app).post(f"/workers/{w[0]}/lease", json={"models": ["m"]}, headers=w[1])
     res = {"output": "o", "prompt_tokens": 1, "completion_tokens": 20}
-    ca, cb = TestClient(app), TestClient(app)
-    out = race(lambda: ca.post(f"/jobs/{jid}/result", json=res, headers=w[1]),
-               lambda: cb.post(f"/jobs/{jid}/result", json=res, headers=w[1]))
-    assert [r.status_code for r in out] == [200, 200]
-    assert sorted(r.json()["settled"] for r in out) == [False, True]
+    clients = [TestClient(app) for _ in range(6)]  # one client per thread
+    out = race(*[lambda c=c: c.post(f"/jobs/{jid}/result", json=res, headers=w[1]) for c in clients])
+    assert [r.status_code for r in out] == [200] * 6
+    assert sorted(r.json()["settled"] for r in out) == [False] * 5 + [True]
+    kinds, total = _settle_counts(jid)
+    assert kinds.count("settle") == 1 and total == 0
+    # A second settle would push held to -50 and pay 40: held 0 means no overdraw.
+    assert bal(contrib) == {"available": 20, "held": 0} and bal(cons) == {"available": 980, "held": 0}
+
+
+def test_concurrent_ledger_settles_with_one_key_post_once():
+    """Backstop below the API's compare-and-set: 6 sessions post the same job's settle at once. The unique
+    idempotency key lets exactly one through, so the held reservation is drained once and never overdrawn."""
+    from sqlalchemy.exc import IntegrityError
+    cons, contrib = user(1000), user()
+    jid = TestClient(app).post("/jobs", json={"model": "m", "prompt": "p", "max_tokens": 50}, headers=cons).json()["id"]
+    with SessionLocal() as db:
+        j = db.get(Job, jid)
+        held = user_account(db, j.consumer_user_id, "user_held").id
+        back = user_account(db, j.consumer_user_id, "user_available").id
+        earner = user_account(db, TestClient(app).get("/users/me", headers=contrib).json()["id"], "user_available").id
+
+    def settle():
+        with SessionLocal() as db:
+            try:
+                tx = post(db, "settle", f"job:{jid}:settle", [(held, -50), (earner, 20), (back, 30)], jid)
+                db.commit()
+                return "posted" if tx else "replay"
+            except IntegrityError:  # the unique key refused a racing duplicate; its whole tx rolls back
+                db.rollback()
+                return "refused"
+    out = race(*[settle] * 6)
+    assert out.count("posted") == 1, out
     kinds, total = _settle_counts(jid)
     assert kinds.count("settle") == 1 and total == 0
     assert bal(contrib) == {"available": 20, "held": 0} and bal(cons) == {"available": 980, "held": 0}
