@@ -196,6 +196,9 @@ class Dummy(ModelProvider):
         return ["dummy"]
 
     def run_inference(self, model, prompt, max_tokens, temperature=0):
+        # A real run takes time. An instant one let the first node drain all 20 jobs before the others'
+        # long-poll step (0.5 s) came round, so "work was spread over several nodes" failed about 1 run in 8.
+        time.sleep(0.1)
         return {"output": "ok", "prompt_tokens": 1, "completion_tokens": 5, "eval_duration_ns": 1}
 
 
