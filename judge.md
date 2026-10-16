@@ -332,6 +332,8 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 - **Several settles of one job at once.** The duplicate-result race now fires 6 identical results together (was 2): exactly one settles, the other 5 get a no-op 200, held ends at 0 and the contributor is paid once. A new test goes below the API: 6 sessions post the same `job:{id}:settle` ledger key at once, and the unique key lets exactly one through, so the held reservation is drained once and never overdrawn. Both run on SQLite and Postgres. Mutation checks on Postgres: removing the result compare-and-set fails the first test, and making the key unique per call (6 settles posted) fails the second.
 - **Postgres in CI.** `.github/workflows/check.yml` has a second job, `postgres`, with a `postgres:15` service container that runs the backend suite on Postgres in both file orders. Its install and test commands were rerun from a clean venv against local Postgres 15 (35 passed, both orders). It is in its own commit, the last one of this round.
 
-**Not verified:** the CI workflow has still never run on GitHub, so the `postgres` job (service container, health check, `localhost:5432`) is untested there. The Ollama adapter still has never run against real Ollama: Ollama is not installed on this machine, and this round did not install it.
+**CI result (after push):** GitHub Actions run 38930066284 on `e48455f` passed both jobs, `check` and `postgres`. The previous run, on `1f4f050`, had failed on the same pilot-test flake fixed above.
+
+**Not verified:** one green CI run is not proof that the Postgres job is stable. The Ollama adapter still has never run against real Ollama: Ollama is not installed on this machine, and this round did not install it.
 
 **Still open:** worker trust (blocker 2), demand, counsel review and the cash-value decision are unchanged from Update 11, as are the other items in its "Still open" list.
