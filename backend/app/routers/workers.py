@@ -1,5 +1,5 @@
 import time
-from datetime import UTC, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -35,12 +35,7 @@ class PublicKey(BaseModel):
 
 
 def online(w: Worker, t) -> bool:
-    return w.revoked_at is None and w.last_seen_at is not None and t - _aware(w.last_seen_at) < ONLINE_WINDOW
-
-
-def _aware(dt):
-    """SQLite drops tzinfo on read; values are always written in UTC."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+    return w.revoked_at is None and w.last_seen_at is not None and t - w.last_seen_at < ONLINE_WINDOW
 
 
 @router.get("/estimate")
@@ -71,7 +66,7 @@ def list_workers(u: User = Depends(current_user), db: Session = Depends(get_db))
     done = dict(db.execute(select(UsageReceipt.worker_id, func.count()).join(Worker, Worker.id == UsageReceipt.worker_id)
                            .where(Worker.owner_user_id == u.id).group_by(UsageReceipt.worker_id)).all())
     return [{"id": w.id, "name": w.name, "revoked": w.revoked_at is not None, "created_at": w.created_at.isoformat(),
-             "online": online(w, t), "last_seen_at": w.last_seen_at and _aware(w.last_seen_at).isoformat(),
+             "online": online(w, t), "last_seen_at": w.last_seen_at and w.last_seen_at.isoformat(),
              "models": w.models.split(",") if w.models else [], "signing_key": w.public_key is not None,
              "jobs_settled": done.get(w.id, 0)}
             for w in db.scalars(select(Worker).where(Worker.owner_user_id == u.id).order_by(Worker.id).limit(200))]

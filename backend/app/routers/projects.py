@@ -12,6 +12,7 @@ from ..database import get_db
 from ..ledger import InsufficientFunds, balance, spend
 from ..models import Account, Project, User
 from ..models.ledger import now
+from ..ratelimit import limit
 from .users import require_admin, user_account
 
 router = APIRouter()
@@ -39,7 +40,7 @@ def list_projects(db: Session = Depends(get_db)):
     return [view(p, db) for p in db.scalars(q)]
 
 
-@router.post("/projects", status_code=201)
+@router.post("/projects", status_code=201, dependencies=[Depends(limit("project"))])
 def submit_project(body: NewProject, u: User = Depends(current_user), db: Session = Depends(get_db)):
     """Auth: any user, who becomes the maintainer. Unlisted until an admin verifies it after moderation."""
     acc = Account(type="project_budget")

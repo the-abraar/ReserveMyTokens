@@ -107,6 +107,39 @@ def test_rate_limit(monkeypatch):
     assert [lease(w).status_code in (200, 204), lease(w).status_code] == [True, 429]
 
 
+def test_signup_and_project_submit_are_rate_limited(monkeypatch):
+    monkeypatch.setitem(ratelimit.LIMITS, "signup", 2)
+    monkeypatch.setitem(ratelimit.LIMITS, "project", 1)
+    # Signup is per client IP, so a fresh Authorization header per call does not reset it.
+    codes = [c.post("/users", json={"username": f"rl{i}"}, headers=H(f"x{i}")).status_code for i in range(3)]
+    assert codes == [201, 201, 429]
+    with SessionLocal() as db:
+        db.execute(text("UPDATE rate_hits SET minute = minute - 1"))  # next window
+        db.commit()
+    a, b = user(), user()
+
+    def proj(h, name):
+        return c.post("/projects", json={"name": name, "url": "https://example.org", "description": "d"}, headers=h)
+
+    assert [proj(a, "p1").status_code, proj(a, "p2").status_code] == [201, 429]
+    assert proj(b, "p3").status_code == 201  # per user token
+
+
+def test_timestamps_read_back_in_utc():
+    """SQLite drops tzinfo on read; every API timestamp must still carry +00:00, like the POST /jobs response."""
+    cons, contrib = user(1000), user()
+    posted = c.post("/jobs", json={"model": "m", "prompt": "p", "max_tokens": 1}, headers=cons).json()
+    assert posted["created_at"].endswith("+00:00")
+    assert c.get(f"/jobs/{posted['id']}", headers=cons).json()["created_at"] == posted["created_at"]
+    assert c.get("/jobs", headers=cons).json()[0]["created_at"] == posted["created_at"]
+    w = worker(contrib)
+    lease(w)
+    [listed] = c.get("/workers", headers=contrib).json()
+    assert listed["created_at"].endswith("+00:00") and listed["last_seen_at"].endswith("+00:00")
+    with SessionLocal() as db:
+        assert db.get(Job, posted["id"]).created_at.utcoffset() == timedelta(0)
+
+
 def test_rate_limit_is_shared_through_the_database(monkeypatch):
     """The count lives in rate_hits, not process memory, so another API process sees the same hits."""
     monkeypatch.setitem(ratelimit.LIMITS, "submit", 2)

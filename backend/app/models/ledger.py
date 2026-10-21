@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,7 +24,20 @@ def now():
 
 # BigInteger on Postgres; SQLite needs Integer for autoincrement PKs.
 BigInt = BigInteger().with_variant(Integer, "sqlite")
-TS = DateTime(timezone=True)
+
+
+class _UTCDateTime(TypeDecorator):
+    """Timezone-aware column that always reads back in UTC: SQLite drops tzinfo, Postgres uses the session zone."""
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)  # written in UTC
+
+
+TS = _UTCDateTime()
 
 
 class User(Base):

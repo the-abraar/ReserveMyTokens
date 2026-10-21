@@ -12,6 +12,7 @@ from ..auth import create_user, current_user
 from ..database import get_db
 from ..ledger import balance, post, system_account
 from ..models import Account, User
+from ..ratelimit import limit
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ def user_account(db: Session, user_id: int, type_: str) -> Account:
     return db.scalar(select(Account).where(Account.owner_user_id == user_id, Account.type == type_))
 
 
-@router.post("/users", status_code=201)
+@router.post("/users", status_code=201, dependencies=[Depends(limit("signup", per_ip=True))])
 def register(body: NewUser, db: Session = Depends(get_db)):
     """Auth: none, deliberately: API-key signup. Closed (403) once a real OIDC issuer is configured outside dev."""
     if os.getenv("OIDC_ISSUER") and not oidc.is_dev():

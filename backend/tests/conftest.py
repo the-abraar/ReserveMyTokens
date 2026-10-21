@@ -3,6 +3,8 @@ import tempfile
 
 os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.mkdtemp()}/import.db"  # placeholder; fixture swaps per test
 os.environ["ADMIN_TOKEN"] = "test-admin"
+# Tests sign up many users from one client; test_hardening lowers these to test the limits themselves.
+os.environ["RATE_SIGNUP_PER_MIN"] = os.environ["RATE_PROJECT_PER_MIN"] = "1000"
 
 import pytest
 from alembic import command
