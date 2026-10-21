@@ -74,6 +74,17 @@ rmt-worker start --worker-id <id> --max-compute-hours 2 --max-tokens-per-day 500
 rmt-worker stop                        # kill switch, from another terminal
 ```
 
+#### Run with Ollama locally (no Docker)
+The smallest end-to-end loop: SQLite coordinator, one worker, one small model (`qwen2.5:0.5b`, about 400 MB).
+```bash
+ollama serve &                                  # API on localhost:11434 (RMT_OLLAMA_URL to change)
+ollama pull qwen2.5:0.5b
+cd backend && pip install -r requirements.txt   # Python 3.11/3.12 venv outside the repo
+DATABASE_URL=sqlite:////tmp/rmt.db alembic upgrade head
+DATABASE_URL=sqlite:////tmp/rmt.db RMT_ENV=dev ADMIN_TOKEN=<pick one> uvicorn app.main:app --port 8000
+```
+Then: `POST /users` twice (consumer and contributor), `POST /admin/fund` the consumer (`X-Admin-Token`, `Idempotency-Key`), `POST /workers` as the contributor, `rmt-worker login` and `rmt-worker start --model qwen2.5:0.5b`, and `POST /jobs` as the consumer. The job reserves `max_tokens` credits, the worker runs it, and settlement charges the reported completion tokens and refunds the rest. `GET /jobs/{id}/receipt` shows the signed usage.
+
 ### 4. Local OIDC login (dev only)
 The coordinator ships a stub identity provider for local development. It answers 404 unless both variables below are set:
 ```bash

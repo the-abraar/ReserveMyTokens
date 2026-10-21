@@ -337,3 +337,14 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 **Not verified:** one green CI run is not proof that the Postgres job is stable. The Ollama adapter still has never run against real Ollama: Ollama is not installed on this machine, and this round did not install it.
 
 **Still open:** worker trust (blocker 2), demand, counsel review and the cash-value decision are unchanged from Update 11, as are the other items in its "Still open" list.
+
+### Update 13 (2026-10-21, agent round): first run against real Ollama
+
+**Done, and verified by me in this round:** Ollama 0.40.6 (Homebrew) with `qwen2.5:0.5b`, the smallest common chat model (about 400 MB, Apache 2.0). The worker only calls `/api/tags` and `/api/generate`, so any model works; this one keeps the download and RAM small. Coordinator: uvicorn on SQLite (`alembic upgrade head` to 0005), `RMT_ENV=dev`, an admin token. Steps: two API-key users; the consumer funded 1000 test credits; the contributor registered a worker; `rmt-worker login` stored the token and signing key in the real macOS Keychain; `rmt-worker start --model qwen2.5:0.5b`.
+- Job 1, "What is the capital of France? Answer in one word.", `max_tokens` 64: reserve moved 64 to held, the worker leased it, Ollama answered "Paris" with 41 prompt and 2 completion tokens (a direct `/api/generate` call gave the same counts), settle charged 2 and refunded 62. Consumer 998, contributor 2, held 0.
+- Job 2, a long story capped at `max_tokens` 8: output was cut at 8 tokens, charged 8. Final balances: consumer 990, contributor 10.
+- Both receipts are signed and verify (Ed25519). All 5 ledger transactions sum to 0, and so does the whole ledger. Both job prompts are blank after settlement. Neither the API log nor the worker log contains a prompt or an output. `rmt-worker stop` ended the worker after its long-poll; `logout` removed the Keychain entry.
+
+**Bugs found:** none. Minor: on SQLite, `created_at` in the job view carries `+00:00` in the `POST /jobs` response but not on later reads (SQLite drops tzinfo); Postgres is unaffected. Not fixed.
+
+**Not verified:** larger models, GPU contention, a long (minutes) generation against the 600 s adapter timeout, and the web dashboard against real Ollama. Token counts are still self-reported (blocker 2 unchanged).
