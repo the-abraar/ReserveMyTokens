@@ -11,7 +11,7 @@ from .. import oidc
 from ..auth import create_user, current_user
 from ..database import get_db
 from ..ledger import balance, post, system_account
-from ..models import Account, User
+from ..models import Account, Job, User
 from ..ratelimit import limit
 
 router = APIRouter()
@@ -74,3 +74,26 @@ def fund(body: Fund, idempotency_key: str = Header(""), db: Session = Depends(ge
     post(db, "fund", f"fund:{idempotency_key}", [(system_account(db, "issuance").id, -body.amount), (acc.id, body.amount)])
     db.commit()
     return {"ok": True}
+
+
+class Probe(BaseModel):
+    model: str = Field(min_length=1, max_length=100)
+    prompt: str = Field(min_length=1, max_length=20000)
+    max_tokens: int = Field(ge=1, le=4096)
+    expected_output: str = Field(max_length=200000)
+    expected_tokens: int = Field(ge=0)  # the true completion_tokens for expected_output on this model
+
+
+@router.post("/admin/probes", status_code=201, dependencies=[Depends(require_admin)])
+def create_probe(body: Probe, db: Session = Depends(get_db)):
+    """Auth: admin token. Known-answer job (temperature 0) owned by the system user `rmt-probe`. It looks like any
+    job to a worker; a wrong output or token count earns a dispute strike. Never charged or paid.
+    shortcut: exact-match grading; use only on models/builds that are deterministic at temperature 0."""
+    sysu = db.scalar(select(User).where(User.username == "rmt-probe"))
+    if not sysu:
+        sysu, _ = create_user(db, "rmt-probe")  # API key discarded: nobody logs in as it
+    j = Job(consumer_user_id=sysu.id, model=body.model, prompt=body.prompt, max_tokens=body.max_tokens, reserved=0,
+            temperature=0, expected_output=body.expected_output, expected_tokens=body.expected_tokens)
+    db.add(j)
+    db.commit()
+    return {"id": j.id}

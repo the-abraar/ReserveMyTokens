@@ -359,3 +359,9 @@ Audited 2026-10-12 against git HEAD `84e1aee` (8 commits). Every file in backend
 - TODO.md: the Ollama adapter is ticked (verified in Update 13).
 
 **Still open:** unchanged from Update 13, except for the two items above.
+
+### Update 15 (2026-10-25, agent round)
+
+**Done:** `docs/worker-verification.md` designs five layers for checking reported `completion_tokens` (signed receipts, server-side metering, known-answer probes, redundancy, stake and reputation). Layer 3 is implemented: `POST /admin/probes` (admin token) makes a temperature-0 job owned by the system user `rmt-probe` with `expected_output` and `expected_tokens` (migration 0006). A probe settles nothing (no reservation, receipt or ledger posting); a wrong output or token count flags the attempt and adds a dispute strike, and `DISPUTE_SUSPEND_AFTER` strikes suspend the worker. The worker gets the same reply as for any unpaid job. The strike code is now one helper shared with the redundancy dispute path. Test: `test_probe_job_grades_without_paying`. Backend 36 passed, 2 skipped, both file orders; worker 20; ruff and web-lint pass.
+
+**Not done / not verified:** blocker 2 is unchanged (paid jobs still rest on self-reported tokens; probes only sample). No probe scheduler, no prompt pool, exact-match grading assumes determinism. Not run on Postgres this round. `check.sh` `web-build` failed here: `next build` compiled and then stopped on a Next.js known-vulnerability notice from the npm advisory check (it also printed instructions to upgrade). Not touched this round; upgrading Next.js is a decision for a human.

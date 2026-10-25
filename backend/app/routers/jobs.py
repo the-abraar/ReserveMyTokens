@@ -46,6 +46,14 @@ def release_reservation(db: Session, j: Job):
     post(db, "refund", f"job:{j.id}:refund", [(held, -j.reserved), (avail, j.reserved)], j.id)
 
 
+def strike(db: Session, wid: int):
+    """One dispute strike; suspends the worker at DISPUTE_SUSPEND_AFTER."""
+    x = db.get(Worker, wid)
+    x.disputes = (x.disputes or 0) + 1
+    if x.disputes >= int(os.getenv("DISPUTE_SUSPEND_AFTER", "3")) and not x.revoked_at:
+        x.revoked_at = now()
+
+
 def verifier_pct() -> int:
     """REDUNDANCY_VERIFIER_PCT (0-100, default 0): share of the charge paid to the second worker whose
     matching re-run verified the result; the first worker keeps the rest. Funded out of the worker payout."""
@@ -139,6 +147,13 @@ def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker)
         return {"status": j.status, "settled": False}
     att.output, att.prompt_tokens, att.completion_tokens, att.eval_duration_ns, att.signature = (
         body.output, body.prompt_tokens, body.completion_tokens, body.eval_duration_ns, body.signature)
+    if j.expected_output is not None:  # probe: grade, never pay (no reservation, no receipt, no ledger)
+        passed = body.output == j.expected_output and body.completion_tokens == j.expected_tokens
+        if not passed:
+            att.flagged = True
+            strike(db, w.id)
+        db.commit()
+        return {"status": "completed", "settled": False}  # same reply as an unpaid job: the worker cannot tell a probe
     if new_status == "queued":  # wait for a second, different worker (lease skips workers with a finished attempt)
         db.commit()
         return {"status": "awaiting_verification", "settled": False}
@@ -146,10 +161,7 @@ def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker)
         att.flagged = other.flagged = True
         # shortcut: mitigation only; we can't tell which side lied, so both take a strike. Sybil owners can still re-register.
         for wid in (att.worker_id, other.worker_id):
-            x = db.get(Worker, wid)
-            x.disputes = (x.disputes or 0) + 1
-            if x.disputes >= int(os.getenv("DISPUTE_SUSPEND_AFTER", "3")) and not x.revoked_at:
-                x.revoked_at = now()
+            strike(db, wid)
         release_reservation(db, j)
         db.commit()
         return {"status": "disputed", "settled": False}

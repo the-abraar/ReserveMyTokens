@@ -3,7 +3,7 @@ from datetime import timedelta
 from app import ratelimit
 from app.database import SessionLocal
 from app.main import app
-from app.models import Job, JobAttempt, LedgerPosting
+from app.models import Job, JobAttempt, LedgerPosting, UsageReceipt, Worker
 from app.models.ledger import now
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text, update
@@ -230,3 +230,23 @@ def test_admin_fund_idempotency_and_nonascii_token():
     assert bal(H(cons["api_key"]))["available"] == 50
     r = c.post("/admin/fund", json=body, headers={"X-Admin-Token": "t\u00e9st".encode("utf-8"), "Idempotency-Key": "k2"})
     assert r.status_code == 401
+
+
+def test_probe_job_grades_without_paying(monkeypatch):
+    monkeypatch.setenv("DISPUTE_SUSPEND_AFTER", "2")
+    adm = {"X-Admin-Token": "test-admin"}
+    body = {"model": "m", "prompt": "2+2?", "max_tokens": 8, "expected_output": "4", "expected_tokens": 1}
+    assert c.post("/admin/probes", json=body).status_code in (401, 403)  # admin only
+    owner = user()
+    w = worker(owner)
+    ids = [c.post("/admin/probes", json=body, headers=adm).json()["id"] for _ in range(3)]
+    for jid, (out, tok) in zip(ids, [("4", 1), ("5", 1), ("4", 9)]):  # pass, wrong output, wrong token count
+        assert lease(w).json()["job_id"] == jid
+        assert submit(jid, w, out, tok) == {"status": "completed", "settled": False}  # reply gives nothing away
+    with SessionLocal() as db:
+        assert [a.flagged for a in db.scalars(select(JobAttempt).order_by(JobAttempt.id))] == [False, True, True]
+        x = db.get(Worker, w[0])
+        assert x.disputes == 2 and x.revoked_at is not None  # suspended at 2 strikes
+        assert db.scalar(select(func.count()).select_from(LedgerPosting)) == 0
+        assert db.scalar(select(func.count()).select_from(UsageReceipt)) == 0
+    assert bal(owner) == {"available": 0, "held": 0}

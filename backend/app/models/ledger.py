@@ -90,6 +90,9 @@ class Job(Base):
     temperature: Mapped[float] = mapped_column(Float, default=0, server_default="0")
     redundant: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     idempotency_key: Mapped[str | None] = mapped_column(String)  # unique per consumer: migration 0005
+    # Known-answer probe (migration 0006): set => admin-made, never charged or paid, graded on the worker's output and tokens.
+    expected_output: Mapped[str | None] = mapped_column(Text)
+    expected_tokens: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(TS, default=now)
 
 
