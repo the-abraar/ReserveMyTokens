@@ -6,7 +6,7 @@ This document breaks down the MVP development plan from `idea.md` into actionabl
 
 The development of this cooperative will be orchestrated by the following specialized agents:
 
-1. **@agent/backend-coordinator**: Specialist in Python, FastAPI, and PostgreSQL. Responsible for the central API, the double-entry credit ledger, and API provider adapters.
+1. **@agent/backend-coordinator**: Specialist in Python, FastAPI, and PostgreSQL. Responsible for the central API, the double-entry credit ledger, and the local-model provider interface (no hosted-API adapters in v1).
 2. **@agent/worker-cli**: Specialist in Python CLI applications and local AI model integrations. Responsible for building the outbound-polling worker and integrating with Ollama.
 3. **@agent/frontend-ui**: Specialist in Next.js, React, and TailwindCSS. Responsible for the user dashboard and project registry.
 4. **@agent/security-auditor**: Specialist in application security, penetration testing, and access control. Responsible for verifying trust boundaries and threat models.

@@ -16,11 +16,11 @@ MVP supply is donor-run local open-weight models under permissive licenses (Apac
 - Cash redemption and trading: payment and legal review pending.
 
 ## 1. Product definition
-**Mission:** let people contribute spare AI capacity, earn a claim on future capacity, and donate resources to open-source work.
+**Mission:** let people contribute spare local AI capacity (their own machines running open-weight models), earn a claim on future capacity, and donate resources to open-source work.
 
 The product has three actors:
 - **Contributor:** makes local open-weight model inference available.
-- **Consumer:** spends earned credits to run AI tasks using capacity supplied by the network.
+- **Consumer:** spends earned credits to run AI tasks using capacity supplied by other members' donor-run workers.
 - **Project maintainer:** submits eligible work and receives donated capacity from the community.
 
 *One person can fill all three roles.*
@@ -30,7 +30,7 @@ The product has three actors:
 - Account and contributor enrollment
 - Local-model worker using Ollama
 - Local-model metering
-- Reserve credits and donation pool
+- Reserve credits and per-project donation accounts
 - Open-source project registry
 - Usage ledger and audit history
 - Rate limits and spending caps
@@ -145,7 +145,7 @@ A contribution should move through explicit states: proposed → reserved → co
 A failed or cancelled job should release unused capacity reservations. A successful task settles only the amount supported by its usage receipt and the applicable conversion policy.
 
 **What exactly is one credit worth?**
-For the first release, I would use a common internal accounting unit with resource-specific pricing. For example, a provider-backed task could be priced from its actual eligible cost, while local inference is priced using a published schedule based on model class, throughput and compute time. 
+For the first release, I would use a common internal accounting unit with resource-specific pricing. For example, local inference is priced using a published schedule based on model class, throughput and compute time. 
 *Rules:*
 1. Credits are not cash. No transfers to bank accounts, trading or secondary markets in v1.
 2. Credits are claims on future eligible capacity, not guaranteed inventory. Redemption is subject to availability and published rules.
@@ -235,7 +235,7 @@ The brand should communicate a reserve of donor-run local capacity, and trust. M
 
 **The core product language:**
 - **Reserve** — contribute local open-weight capacity and earn test credits.
-- **Redeem** — spend credits on available network capacity.
+- **Redeem** — spend test credits on whatever donor-run capacity is online (no network is live yet).
 - **Donate** — direct capacity to approved public-good projects.
 - **Connect** — integrate tools (other resource providers only after policy review; none today).
 
