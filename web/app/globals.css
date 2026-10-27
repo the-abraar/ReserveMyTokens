@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Tailwind's preflight strips borders and heading sizes; the pages use plain elements, so the API key field was invisible. */
+@layer base {
+  h1 { font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0; }
+  h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+  input, textarea, button { border: 1px solid #8888; border-radius: 4px; padding: 4px 8px; }
+  button { cursor: pointer; margin: 4px 0; }
+  a { text-decoration: underline; }
+  ul { list-style: disc; padding-left: 1.25rem; }
+  main { width: 100%; } /* body is a flex column: without this, main shrinks to its content and a long token overflows */
+  code { overflow-wrap: anywhere; }
+}

@@ -29,7 +29,10 @@ export default function Home() {
       setJobs(await call("/jobs"));
       setWorkers(await call("/workers"));
       setErr("");
-    } catch (e) { setErr(String(e)); }
+    } catch (e) {
+      setErr(String(e));
+      if (String(e).startsWith("Error: 401")) keyStore.set(null); // wrong or expired key: back to the login form
+    }
   }, [call]);
 
   // OIDC redirect back: finish the code exchange once, on load.
