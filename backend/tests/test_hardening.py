@@ -232,21 +232,28 @@ def test_admin_fund_idempotency_and_nonascii_token():
     assert r.status_code == 401
 
 
-def test_probe_job_grades_without_paying(monkeypatch):
+def test_probe_pays_like_a_job_when_right_and_strikes_when_wrong(monkeypatch):
     monkeypatch.setenv("DISPUTE_SUSPEND_AFTER", "2")
     adm = {"X-Admin-Token": "test-admin"}
     body = {"model": "m", "prompt": "2+2?", "max_tokens": 8, "expected_output": "4", "expected_tokens": 1}
     assert c.post("/admin/probes", json=body).status_code in (401, 403)  # admin only
-    owner = user()
+    cons, owner = user(100), user()
     w = worker(owner)
+    paid = c.post("/jobs", json={"model": "m", "prompt": "2+2?", "max_tokens": 8}, headers=cons).json()["id"]
+    assert lease(w).json()["job_id"] == paid
+    paid_reply = submit(paid, w, "4", 1)
     ids = [c.post("/admin/probes", json=body, headers=adm).json()["id"] for _ in range(3)]
+    replies = []
     for jid, (out, tok) in zip(ids, [("4", 1), ("5", 1), ("4", 9)]):  # pass, wrong output, wrong token count
         assert lease(w).json()["job_id"] == jid
-        assert submit(jid, w, out, tok) == {"status": "completed", "settled": False}  # reply gives nothing away
+        replies.append(submit(jid, w, out, tok))
+    assert replies[0] == paid_reply == {"status": "completed", "settled": True, "charged": 1}  # a probe looks paid
+    assert replies[1] == replies[2] == {"status": "completed", "settled": False}
+    assert bal(owner) == {"available": 2, "held": 0}  # paid job + passing probe; the wrong ones earn nothing
     with SessionLocal() as db:
-        assert [a.flagged for a in db.scalars(select(JobAttempt).order_by(JobAttempt.id))] == [False, True, True]
+        assert [a.flagged for a in db.scalars(select(JobAttempt).order_by(JobAttempt.id))] == [False, False, True, True]
         x = db.get(Worker, w[0])
         assert x.disputes == 2 and x.revoked_at is not None  # suspended at 2 strikes
-        assert db.scalar(select(func.count()).select_from(LedgerPosting)) == 0
-        assert db.scalar(select(func.count()).select_from(UsageReceipt)) == 0
-    assert bal(owner) == {"available": 0, "held": 0}
+        assert db.scalar(select(func.count()).select_from(UsageReceipt)) == 2
+        assert db.scalar(select(func.sum(LedgerPosting.amount))) == 0
+        assert all(db.get(Job, i).prompt == "" for i in ids)
