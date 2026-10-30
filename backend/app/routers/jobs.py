@@ -8,13 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import receipts
-from ..auth import current_user, current_worker
+from ..auth import create_user, current_user, current_worker
 from ..database import get_db
-from ..ledger import InsufficientFunds, post, spend
+from ..ledger import InsufficientFunds, post, spend, system_account
 from ..models import Job, JobAttempt, UsageReceipt, User, Worker
 from ..models.ledger import now
 from ..ratelimit import limit
-from .users import user_account
+from .users import require_admin, user_account
 
 router = APIRouter()
 PRICE_PER_TOKEN = 1  # test credits per completion token
@@ -97,6 +97,35 @@ def create_job(body: NewJob, idempotency_key: str = Header("", max_length=200), 
     return view(j)
 
 
+class Probe(BaseModel):
+    model: str = Field(min_length=1, max_length=100)
+    prompt: str = Field(min_length=1, max_length=20000)
+    max_tokens: int = Field(ge=1, le=4096)
+    expected_output: str = Field(max_length=200000)
+    expected_tokens: int = Field(ge=0)  # the true completion_tokens for expected_output on this model
+
+
+@router.post("/admin/probes", status_code=201, dependencies=[Depends(require_admin)])
+def create_probe(body: Probe, db: Session = Depends(get_db)):
+    """Auth: admin token. Known-answer job (temperature 0) owned by the system user `rmt-probe`. A correct answer
+    settles and pays exactly like a paid job, so neither the reply nor the owner's balance tells the worker it was a
+    probe. A wrong output or token count pays nothing, is refunded and earns a dispute strike.
+    shortcut: exact-match grading; use only on models/builds that are deterministic at temperature 0."""
+    sysu = db.scalar(select(User).where(User.username == "rmt-probe"))
+    if not sysu:
+        sysu, _ = create_user(db, "rmt-probe")  # API key discarded: nobody logs in as it
+    j = Job(consumer_user_id=sysu.id, model=body.model, prompt=body.prompt, max_tokens=body.max_tokens,
+            reserved=body.max_tokens * PRICE_PER_TOKEN, temperature=0, expected_output=body.expected_output,
+            expected_tokens=body.expected_tokens)
+    db.add(j)
+    db.flush()
+    # The reservation is minted from issuance (test credits, like /admin/fund) straight into the probe user's held.
+    post(db, "fund", f"job:{j.id}:probe_fund",
+         [(system_account(db, "issuance").id, -j.reserved), (user_account(db, sysu.id, "user_held").id, j.reserved)], j.id)
+    db.commit()
+    return {"id": j.id}
+
+
 @router.get("/jobs/{job_id}")
 def get_job(job_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
     j = db.get(Job, job_id)
@@ -147,13 +176,12 @@ def submit_result(job_id: int, body: Result, w: Worker = Depends(current_worker)
         return {"status": j.status, "settled": False}
     att.output, att.prompt_tokens, att.completion_tokens, att.eval_duration_ns, att.signature = (
         body.output, body.prompt_tokens, body.completion_tokens, body.eval_duration_ns, body.signature)
-    if j.expected_output is not None:  # probe: grade, never pay (no reservation, no receipt, no ledger)
-        passed = body.output == j.expected_output and body.completion_tokens == j.expected_tokens
-        if not passed:
-            att.flagged = True
-            strike(db, w.id)
+    if j.expected_output is not None and (body.output, body.completion_tokens) != (j.expected_output, j.expected_tokens):
+        att.flagged = True  # failed probe: no pay, refund, strike. A passing probe settles below like any paid job.
+        strike(db, w.id)
+        release_reservation(db, j)
         db.commit()
-        return {"status": "completed", "settled": False}  # same reply as an unpaid job: the worker cannot tell a probe
+        return {"status": "completed", "settled": False}
     if new_status == "queued":  # wait for a second, different worker (lease skips workers with a finished attempt)
         db.commit()
         return {"status": "awaiting_verification", "settled": False}
