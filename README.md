@@ -4,14 +4,14 @@
 
 **ReserveMyTokens** is a planned cooperative (central coordinator, outbound-polling workers; nothing is deployed) for saving and donating spare local compute running open-weight models. 
 
-Instead of letting your local GPU sit idle, you can run an open-weight model (Apache 2.0 or MIT licensed) and contribute that capacity to the network. Subscription sharing and pooled API keys are not supported (see `docs/provider-terms.md`). In return, you earn credits to borrow capacity later, or you can explicitly donate your compute to verified open-source projects that need it.
+Instead of letting your local GPU sit idle, you can run an open-weight model (Apache 2.0 or MIT licensed) and serve jobs from the coordinator with it. Subscription sharing and pooled API keys are not supported (see `docs/provider-terms.md`). In return, you earn credits to borrow capacity later, or you can donate those credits to verified open-source projects. Spending a project's donated budget is not built yet.
 
 ---
 
 ## 🌟 The Vision
 
 *   **Reserve:** Contribute local open-weight inference capacity today, and earn test credits toward future capacity. Contributions are not yet verified: credits are paid on worker-reported token counts. Workers sign their usage receipts (Ed25519), which shows who claimed what but does not make the numbers true.
-*   **Donate:** Directly fund public-good projects (examples only, no partnership: Wikipedia maintainers, Open Food Facts) by routing your spare local capacity to their tasks.
+*   **Donate:** Directly fund public-good projects (examples only, no partnership: Wikipedia maintainers, Open Food Facts) by donating credits you earned. Running tasks from a project's budget is not built yet.
 *   **Interoperate:** We aren't trying to replace OpenRouter or LiteLLM. We act as a cooperative ledger layer. 
 
 Deferred, out of v1 scope: failover to [SpareCycles](https://sparecycles.io) or any other third-party capacity, which `docs/provider-terms.md` does not allow. The seed project list is fetched from the public [Agentic Commons](https://agentic-commons.org) directory; there is no partnership.

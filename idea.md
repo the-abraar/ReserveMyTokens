@@ -125,7 +125,7 @@ Do not store just a mutable field like `users.balance = 120`.
 Build an append-only, double-entry ledger. Every transfer of value is recorded as balanced postings, and corrections are new transactions rather than edits to historical records.
 
 **Example: how the reserve bank works** (illustrative; credits are test-only and no conversion policy exists)
-Suppose a contributor provides a verified unit of eligible capacity worth 100 credits under the published conversion policy.
+Suppose a contributor provides a verified unit of eligible capacity that settles at 100 credits under the published conversion policy.
 - *Contribution settled:* +100 to Contributor's available balance, +100 to Network's outstanding obligation.
 - *Consumer spends 30 credits:* +100 for contributor, Reduced by 30 of the settled reserve obligation, with 30 credited to the consumed-resource account.
 - *Contributor redeems 20 credits:* +80 balance, Reduced by the settled redemption amount.
@@ -143,6 +143,8 @@ These are conceptual events; the actual accounting entries depend on whether cap
 **Don't issue credits for unverified promises**
 A contribution should move through explicit states: proposed → reserved → completed → verified → settled.
 A failed or cancelled job should release unused capacity reservations. A successful task settles only the amount supported by its usage receipt and the applicable conversion policy.
+
+Today's prototype does not have the verified state: it settles on worker-reported token counts, checked only by sampled known-answer probes and optional redundancy (see `docs/worker-verification.md`).
 
 **What exactly is one credit worth?**
 For the first release, I would use a common internal accounting unit with resource-specific pricing. For example, local inference is priced using a published schedule based on model class, throughput and compute time. 
