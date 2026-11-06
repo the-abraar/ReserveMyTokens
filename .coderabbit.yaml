@@ -1,0 +1,12 @@
+reviews:
+  profile: assertive
+  path_instructions:
+    - path: "web/**/*.{ts,tsx}"
+      instructions: |
+        Next.js frontend. Flag unvalidated API input and exposed env vars.
+    - path: "{backend,worker}/**/*.py"
+      instructions: |
+        Python backend and worker. Check input validation, auth/authorization, secrets in code, and error handling. Flag non-idempotent jobs.
+
+tone_instructions: |
+  Be concise, direct, and constructive.
