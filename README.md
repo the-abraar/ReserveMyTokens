@@ -45,12 +45,17 @@ The MVP is split into three core components:
 This repository contains the full monorepo for the cooperative.
 
 ### 1. Backend (FastAPI + PostgreSQL)
-Navigate to the `backend/` directory and use Docker Compose to spin up the API and the database:
+Navigate to the `backend/` directory and use Docker Compose (v2) to spin up the API and the database. `POSTGRES_PASSWORD` is required; pick a throwaway local value. `ADMIN_TOKEN` is optional, but without it `POST /admin/fund` cannot be used:
 ```bash
 cd backend
-docker-compose up --build
+POSTGRES_PASSWORD=<throwaway local value> ADMIN_TOKEN=<pick one> docker compose up --build
 ```
-The API will be available at `http://localhost:8000`.
+Or put them in `backend/.env` (git-ignored; never commit real values):
+```bash
+POSTGRES_PASSWORD=<throwaway local value>
+ADMIN_TOKEN=<pick one>
+```
+The API will be available at `http://localhost:8000`. If port 8000 is taken, set `API_PORT` (e.g. `API_PORT=8001`). `CORS_ORIGINS` (comma-separated) defaults to `http://localhost:3000`, the web app.
 
 ### 2. Frontend (Next.js)
 Navigate to the `web/` directory, install dependencies, and run the development server:
@@ -62,8 +67,9 @@ npm run dev
 The dashboard will be available at `http://localhost:3000`.
 
 ### 3. CLI Worker
-Navigate to the `worker/` directory and install the CLI in editable mode:
+Create a virtual environment outside the repo (Python 3.11 or 3.12, see `AGENTS.md`), then navigate to the `worker/` directory and install the CLI in editable mode:
 ```bash
+python3.12 -m venv ~/.venvs/rmt-worker && . ~/.venvs/rmt-worker/bin/activate
 cd worker
 pip install -e .
 ```
