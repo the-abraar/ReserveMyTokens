@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReserveMyTokens Post-mortem</title>
+<meta name="description" content="ReserveMyTokens was a lab idea for a volunteer GPU token ledger. It was stopped before launch. This page shows the ledger that worked and the flaw that killed it.">
+<style>
+:root{--bg:#F8FAFC;--card:#FFFFFF;--ink:#18181B;--muted:#52525B;--line:#E4E4E7;--accent:#2563EB;--ok:#15803D;--bad:#B91C1C;--warn-bg:#FEF3C7;--warn-ink:#78350F;--hi:#DBEAFE}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1115;--card:#181B21;--ink:#F4F4F5;--muted:#A1A1AA;--line:#2E323A;--accent:#60A5FA;--ok:#4ADE80;--bad:#F87171;--warn-bg:#3A2E10;--warn-ink:#FDE68A;--hi:#1E3A5F}}
+:root[data-theme="dark"]{--bg:#0F1115;--card:#181B21;--ink:#F4F4F5;--muted:#A1A1AA;--line:#2E323A;--accent:#60A5FA;--ok:#4ADE80;--bad:#F87171;--warn-bg:#3A2E10;--warn-ink:#FDE68A;--hi:#1E3A5F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:clamp(1.6rem,5vw,2.3rem);line-height:1.15;margin:.4em 0 .3em}
+h2{font-size:1.25rem;margin:2.2em 0 .5em}
+p,li{color:var(--ink)}
+.muted{color:var(--muted)}
+a{color:var(--accent)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+.banner{background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:12px 16px;font-size:.95rem}
+.banner strong{color:inherit}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button[aria-pressed="true"]{outline:2px solid var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+.taccts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:600px){.taccts{grid-template-columns:1fr}}
+.tacct{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tacct h3{margin:0;padding:8px 10px;font-size:.9rem;border-bottom:2px solid var(--ink)}
+.tcols{display:grid;grid-template-columns:1fr 1fr;min-height:84px}
+.tcols>div{padding:6px 10px}
+.tcols>div:first-child{border-right:2px solid var(--ink)}
+.tcols small{display:block;color:var(--muted);font-size:.75rem}
+.post{font-family:ui-monospace,Menlo,monospace;font-size:.9rem;transition:background .4s}
+.post.new{background:var(--hi)}
+.bal{padding:6px 10px;border-top:1px solid var(--line);font-weight:600}
+.txlog{font-family:ui-monospace,Menlo,monospace;font-size:.85rem;margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
+label{display:block;font-size:.85rem;color:var(--muted);margin-top:8px}
+input{font:inherit;width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.wrap{overflow-wrap:anywhere;word-break:break-all}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}
+.tablewrap{overflow-x:auto}
+footer{margin-top:48px;font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<p class="banner" role="note"><strong>Post-mortem, not a product.</strong> ReserveMyTokens was stopped before launch: there is no network, no workers and no users, and credits never had cash value. The ledger rows and receipts below were exported by running the real coordinator code on a throwaway database with a scripted worker that replays one real Ollama job. The animations run in your browser.</p>
+
+<h1>ReserveMyTokens: the ledger worked, the workers could lie</h1>
+<p>A lab project from October 2026: volunteers run a local open-weight model, a coordinator sends them prompts, and they earn test credits per completion token. The accounting held up under every race we threw at it. The project still had to stop, because a worker is paid on a number it reports itself, and nobody had asked for the capacity in the first place.</p>
+
+<h2>1. One job, as double-entry postings</h2>
+<p class="muted">Job: "What is the capital of France? Answer in one word.", <code>max_tokens</code> 64, model <code>qwen2.5:0.5b</code>. On a real Ollama 0.40.6 run on 2026-10-21 it answered "Paris" with 41 prompt and 2 completion tokens. The consumer starts with 1000 test credits.</p>
+<div class="card">
+  <div class="row" role="group" aria-label="Which worker">
+    <button id="w-honest" aria-pressed="true">Honest worker</button>
+    <button id="w-lying" aria-pressed="false">Lying worker</button>
+  </div>
+  <p id="w-desc" class="muted"></p>
+  <div class="row"><button id="step" class="primary">Next posting</button><button id="reset">Reset</button></div>
+  <div class="taccts" id="taccts"></div>
+  <div class="txlog" id="txlog" aria-live="polite"></div>
+</div>
+
+<h2>2. Check the worker's signed receipt yourself</h2>
+<p>Each worker signs <code>job | worker | sha256(output) | prompt tokens | completion tokens | duration</code> with its own Ed25519 key. Your browser checks the signature below with WebCrypto. Nothing is sent anywhere. Change a number and check again.</p>
+<div class="card">
+  <p class="muted" id="rc-which"></p>
+  <label for="rc-out">Output the worker returned</label><input id="rc-out">
+  <label for="rc-ct">Completion tokens it claimed</label><input id="rc-ct" inputmode="numeric">
+  <label>Worker public key</label><div class="mono wrap" id="rc-key"></div>
+  <label>Signature</label><div class="mono wrap" id="rc-sig"></div>
+  <label>Payload your browser rebuilds</label><div class="mono wrap" id="rc-payload"></div>
+  <div class="row" style="margin-top:12px"><button id="verify" class="primary">Verify signature</button></div>
+  <p id="rc-result" aria-live="polite"></p>
+</div>
+<p>The catch: switch to the lying worker in section 1 and verify its receipt. It is valid. A signature proves <em>which</em> worker made a claim, not that the claim is true. The lying worker returned an empty answer, signed a claim of 64 tokens, and the coordinator paid it 64, because the charge is <code>min(reported tokens, max_tokens)</code>. Spot checks (re-running a sample on a second worker, known-answer probes) only catch some of it, and two workers run by one person agree with each other.</p>
+
+<h2>3. What the tests proved</h2>
+<ul>
+  <li>Every ledger transaction sums to zero in integer units, and each write has a fixed idempotency key, so a retry is a no-op.</li>
+  <li>Two workers racing for one job: exactly one gets it. Six identical results fired at once: one settles, five are no-ops. A late result racing the lease timeout either settles or refunds, never both.</li>
+  <li>The whole backend suite passed on Postgres 15 (38 tests) and on SQLite (36, plus 2 Postgres-only skips), in normal and reversed file order. Removing the compare-and-set on results makes the race test fail.</li>
+</ul>
+
+<h2>4. Someone already runs this: AI Horde</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th></th><th>AI Horde</th><th>ReserveMyTokens</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Status</th><td>A "free, community-run service for AI image generation and text generation", running</td><td>Stopped before launch; never deployed</td></tr>
+    <tr><th scope="row">Who serves</th><td>Volunteers' own GPUs; KoboldCpp has a built-in Horde worker</td><td>Volunteers' Ollama, local open-weight models only</td></tr>
+    <tr><th scope="row">Reward</th><td>Kudos for work done; kudos "cannot be bought or sold"</td><td>Test credits per completion token; no cash value</td></tr>
+    <tr><th scope="row">License</th><td>AGPL-3.0 or later</td><td>MIT</td></tr>
+  </tbody>
+</table></div>
+<p class="muted">Source: <a href="https://github.com/Haidra-Org/AI-Horde">github.com/Haidra-Org/AI-Horde</a>, accessed 2026-11-10.</p>
+
+<h2>5. Why it stopped</h2>
+<ol>
+  <li><strong>Terms came after the pitch.</strong> The first page offered to pool people's AI subscriptions. The provider terms, read three days later, bar sharing an account or handing over API keys. The only clean supply left was local open-weight models, which are cheap to get elsewhere.</li>
+  <li><strong>No one was asked.</strong> No consumer or donor interview happened before or during the build.</li>
+  <li><strong>Payouts rest on what the worker says</strong> (section 2).</li>
+  <li><strong>Prior art found late</strong> (section 4).</li>
+</ol>
+<p>The full write-up, with sources for every number: <a href="https://github.com/the-abraar/ReserveMyTokens/blob/main/LEARNINGS.md">LEARNINGS.md</a> in the repo.</p>
+
+<footer>Data on this page: <code>demo/data/jobs.json</code>, made by <code>demo/tools/export_job.py</code> in the ReserveMyTokens repo. Real-run numbers: the repo's <code>judge.md</code>, Update 13.</footer>
+</main>
+
+<script id="jobs" type="application/json">[{"label":"honest","max_tokens":64,"reported":{"output":"Paris","prompt_tokens":41,"completion_tokens":2},"settle_reply":{"status":"completed","settled":true,"charged":2},"postings":[{"tx":"reserve","key":"job:1:reserve","account":"consumer-honest:user_available","amount":-64},{"tx":"reserve","key":"job:1:reserve","account":"consumer-honest:user_held","amount":64},{"tx":"settle","key":"job:1:settle","account":"consumer-honest:user_held","amount":-64},{"tx":"settle","key":"job:1:settle","account":"contributor-honest:user_available","amount":2},{"tx":"settle","key":"job:1:settle","account":"consumer-honest:user_available","amount":62}],"receipt":{"job_id":1,"worker_id":1,"model":"qwen2.5:0.5b","prompt_tokens":41,"completion_tokens":2,"eval_duration_ns":0,"charged":2,"usage_source":"worker_reported","signed":true,"signature":"Q9rj4gMtKTI5MSUdgk/KWf9iCgYE+i1y1TjtGI3JmHCtVAggfV9ZMwNViK0frJffQ2aKO+fUt71BtlnrUYD7Dg==","worker_public_key":"Wc9wH5DqAzKzI1QteLQMhCkEW1N3Iwv97TsbrGHreQg=","payload":"rmt-receipt-v1|1|1|5dd272b4f316b776a7b8e3d0894b37e1e42be3d5d3b204b8a5836cc50597a6b1|41|2|0"}},{"label":"lying","max_tokens":64,"reported":{"output":"","prompt_tokens":41,"completion_tokens":64},"settle_reply":{"status":"completed","settled":true,"charged":64},"postings":[{"tx":"reserve","key":"job:2:reserve","account":"consumer-lying:user_available","amount":-64},{"tx":"reserve","key":"job:2:reserve","account":"consumer-lying:user_held","amount":64},{"tx":"settle","key":"job:2:settle","account":"consumer-lying:user_held","amount":-64},{"tx":"settle","key":"job:2:settle","account":"contributor-lying:user_available","amount":64}],"receipt":{"job_id":2,"worker_id":2,"model":"qwen2.5:0.5b","prompt_tokens":41,"completion_tokens":64,"eval_duration_ns":0,"charged":64,"usage_source":"worker_reported","signed":true,"signature":"uPVNYeTajY0+5waCHGHXRNJ/nBWUsbDXElA+pWZIzdusVAicQ+NQQ0t8AG60jVs4ekyotndDjs7U9QSNsPWaBQ==","worker_public_key":"UNNTWZjT7aORNTqW7tF+MBlWt5YM/10mVUsmmAe9MHo=","payload":"rmt-receipt-v1|2|2|e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|41|64|0"}}]</script>
+<script>
+const JOBS = JSON.parse(document.getElementById('jobs').textContent);
+const ACCTS = [['consumer', 'user_available', 'Consumer: available'], ['consumer', 'user_held', 'Consumer: held'], ['contributor', 'user_available', 'Contributor: available']];
+const DESC = {
+  honest: 'Reports what Ollama said: "Paris", 2 completion tokens.',
+  lying: 'Returns an empty answer and claims 64 completion tokens. It signs that claim with its real key.'
+};
+let job, shown, opening;
+const $ = id => document.getElementById(id);
+const acctKey = a => a.split(':')[0].split('-')[0] + ':' + a.split(':')[1];
+
+function pick(label) {
+  job = JOBS.find(j => j.label === label);
+  $('w-honest').setAttribute('aria-pressed', label === 'honest');
+  $('w-lying').setAttribute('aria-pressed', label === 'lying');
+  $('w-desc').textContent = DESC[label];
+  reset();
+  loadReceipt();
+}
+
+function reset() { shown = 0; draw(); }
+
+function draw() {
+  const box = $('taccts');
+  box.replaceChildren();
+  for (const [who, type, title] of ACCTS) {
+    const key = who + ':' + type;
+    let bal = key === 'consumer:user_available' ? 1000 : 0;
+    const out = [], inn = [];
+    job.postings.slice(0, shown).forEach((p, i) => {
+      if (acctKey(p.account) !== key) return;
+      bal += p.amount;
+      const el = document.createElement('div');
+      el.className = 'post' + (i === shown - 1 ? ' new' : '');
+      el.textContent = p.tx + ' ' + Math.abs(p.amount);
+      (p.amount < 0 ? out : inn).push(el);
+    });
+    const t = document.createElement('div'); t.className = 'tacct';
+    const h = document.createElement('h3'); h.textContent = title;
+    const cols = document.createElement('div'); cols.className = 'tcols';
+    const c1 = document.createElement('div'), c2 = document.createElement('div');
+    const lbl = s => Object.assign(document.createElement('small'), { textContent: s });
+    c1.append(lbl('out'), ...out); c2.append(lbl('in'), ...inn);
+    const b = document.createElement('div'); b.className = 'bal'; b.textContent = 'Balance ' + bal;
+    cols.append(c1, c2); t.append(h, cols, b); box.append(t);
+  }
+  const lines = [];
+  for (const tx of ['reserve', 'settle']) {
+    const ps = job.postings.slice(0, shown).filter(p => p.tx === tx);
+    if (!ps.length) continue;
+    const total = job.postings.filter(p => p.tx === tx);
+    const sum = ps.reduce((s, p) => s + p.amount, 0);
+    lines.push(`${total[0].key}: ${ps.map(p => (p.amount > 0 ? '+' : '') + p.amount).join(' ')}` +
+      (ps.length === total.length ? `  sum ${sum}` : '  ...'));
+  }
+  if (shown === job.postings.length) {
+    const r = job.settle_reply;
+    lines.push(`Settled: charged ${r.charged}, refunded ${job.max_tokens - r.charged}. Worker output: "${job.reported.output}"`);
+  }
+  $('txlog').textContent = lines.join('\n') || 'No postings yet. Press "Next posting".';
+  $('step').disabled = shown === job.postings.length;
+}
+
+$('step').onclick = () => { if (shown < job.postings.length) { shown++; draw(); } };
+$('reset').onclick = reset;
+$('w-honest').onclick = () => pick('honest');
+$('w-lying').onclick = () => pick('lying');
+
+// Receipt check. Payload format: backend/app/receipts.py (rmt-receipt-v1).
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hex = buf => [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+
+function loadReceipt() {
+  const r = job.receipt;
+  $('rc-which').textContent = `Receipt for job ${r.job_id} (${job.label} worker), as the coordinator returned it.`;
+  $('rc-out').value = job.reported.output;
+  $('rc-ct').value = r.completion_tokens;
+  $('rc-key').textContent = r.worker_public_key;
+  $('rc-sig').textContent = r.signature;
+  $('rc-result').textContent = '';
+  rebuild();
+}
+
+async function rebuild() {
+  const r = job.receipt;
+  const digest = crypto.subtle ? hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode($('rc-out').value))) : '(needs WebCrypto)';
+  const p = `rmt-receipt-v1|${r.job_id}|${r.worker_id}|${digest}|${r.prompt_tokens}|${$('rc-ct').value.trim()}|${r.eval_duration_ns}`;
+  $('rc-payload').textContent = p;
+  return p;
+}
+
+$('rc-out').oninput = $('rc-ct').oninput = () => { $('rc-result').textContent = ''; rebuild(); };
+
+$('verify').onclick = async () => {
+  const res = $('rc-result');
+  const r = job.receipt;
+  try {
+    if (!crypto.subtle) throw new Error('nosubtle');
+    const key = await crypto.subtle.importKey('raw', b64(r.worker_public_key), { name: 'Ed25519' }, false, ['verify']);
+    const ok = await crypto.subtle.verify({ name: 'Ed25519' }, key, b64(r.signature), new TextEncoder().encode(await rebuild()));
+    res.className = ok ? 'ok' : 'bad';
+    res.textContent = ok
+      ? (job.label === 'lying' ? 'Valid signature. The worker really did sign "empty answer, 64 tokens", and it was paid 64.' : 'Valid signature: this worker signed exactly these numbers.')
+      : 'Invalid: the signature does not cover these values. The coordinator rejects a result like this with HTTP 400.';
+  } catch (e) {
+    res.className = 'bad';
+    res.textContent = 'Your browser cannot check Ed25519 signatures (WebCrypto Ed25519 needs Chrome 137+, Firefox 129+ or Safari 17+, on https or a local file). The receipt itself is in demo/data/jobs.json.';
+  }
+};
+
+pick('honest');
+</script>
+</body>
+</html>

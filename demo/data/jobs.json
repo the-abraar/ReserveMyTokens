@@ -1,0 +1,142 @@
+[
+ {
+  "label": "honest",
+  "job_id": 1,
+  "prompt": "What is the capital of France? Answer in one word.",
+  "max_tokens": 64,
+  "reported": {
+   "output": "Paris",
+   "prompt_tokens": 41,
+   "completion_tokens": 2
+  },
+  "settle_reply": {
+   "status": "completed",
+   "settled": true,
+   "charged": 2
+  },
+  "postings": [
+   {
+    "tx": "reserve",
+    "key": "job:1:reserve",
+    "account": "consumer-honest:user_available",
+    "amount": -64
+   },
+   {
+    "tx": "reserve",
+    "key": "job:1:reserve",
+    "account": "consumer-honest:user_held",
+    "amount": 64
+   },
+   {
+    "tx": "settle",
+    "key": "job:1:settle",
+    "account": "consumer-honest:user_held",
+    "amount": -64
+   },
+   {
+    "tx": "settle",
+    "key": "job:1:settle",
+    "account": "contributor-honest:user_available",
+    "amount": 2
+   },
+   {
+    "tx": "settle",
+    "key": "job:1:settle",
+    "account": "consumer-honest:user_available",
+    "amount": 62
+   }
+  ],
+  "receipt": {
+   "job_id": 1,
+   "worker_id": 1,
+   "model": "qwen2.5:0.5b",
+   "prompt_tokens": 41,
+   "completion_tokens": 2,
+   "eval_duration_ns": 0,
+   "charged": 2,
+   "usage_source": "worker_reported",
+   "signed": true,
+   "signature": "Q9rj4gMtKTI5MSUdgk/KWf9iCgYE+i1y1TjtGI3JmHCtVAggfV9ZMwNViK0frJffQ2aKO+fUt71BtlnrUYD7Dg==",
+   "worker_public_key": "Wc9wH5DqAzKzI1QteLQMhCkEW1N3Iwv97TsbrGHreQg=",
+   "payload": "rmt-receipt-v1|1|1|5dd272b4f316b776a7b8e3d0894b37e1e42be3d5d3b204b8a5836cc50597a6b1|41|2|0",
+   "created_at": "2026-11-10T11:50:18.344182+00:00"
+  },
+  "balances": {
+   "consumer": {
+    "available": 998,
+    "held": 0
+   },
+   "contributor": {
+    "available": 2,
+    "held": 0
+   }
+  }
+ },
+ {
+  "label": "lying",
+  "job_id": 2,
+  "prompt": "What is the capital of France? Answer in one word.",
+  "max_tokens": 64,
+  "reported": {
+   "output": "",
+   "prompt_tokens": 41,
+   "completion_tokens": 64
+  },
+  "settle_reply": {
+   "status": "completed",
+   "settled": true,
+   "charged": 64
+  },
+  "postings": [
+   {
+    "tx": "reserve",
+    "key": "job:2:reserve",
+    "account": "consumer-lying:user_available",
+    "amount": -64
+   },
+   {
+    "tx": "reserve",
+    "key": "job:2:reserve",
+    "account": "consumer-lying:user_held",
+    "amount": 64
+   },
+   {
+    "tx": "settle",
+    "key": "job:2:settle",
+    "account": "consumer-lying:user_held",
+    "amount": -64
+   },
+   {
+    "tx": "settle",
+    "key": "job:2:settle",
+    "account": "contributor-lying:user_available",
+    "amount": 64
+   }
+  ],
+  "receipt": {
+   "job_id": 2,
+   "worker_id": 2,
+   "model": "qwen2.5:0.5b",
+   "prompt_tokens": 41,
+   "completion_tokens": 64,
+   "eval_duration_ns": 0,
+   "charged": 64,
+   "usage_source": "worker_reported",
+   "signed": true,
+   "signature": "uPVNYeTajY0+5waCHGHXRNJ/nBWUsbDXElA+pWZIzdusVAicQ+NQQ0t8AG60jVs4ekyotndDjs7U9QSNsPWaBQ==",
+   "worker_public_key": "UNNTWZjT7aORNTqW7tF+MBlWt5YM/10mVUsmmAe9MHo=",
+   "payload": "rmt-receipt-v1|2|2|e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|41|64|0",
+   "created_at": "2026-11-10T11:50:18.397246+00:00"
+  },
+  "balances": {
+   "consumer": {
+    "available": 936,
+    "held": 0
+   },
+   "contributor": {
+    "available": 64,
+    "held": 0
+   }
+  }
+ }
+]
