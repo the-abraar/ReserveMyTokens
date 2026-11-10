@@ -1,3 +1,5 @@
+Frozen until the owner overrides the default kill: only the next@16.4.3 security bump. Call source: `~/Everything/dev/products/decision.md` (labs under the November bet).
+
 # AGENTS.md
 
 - Run `scripts/check.sh` before finishing; `scripts/check.sh --fast` (lint, stray files, retired claims, unsafe HTML) is the pre-commit hook.
