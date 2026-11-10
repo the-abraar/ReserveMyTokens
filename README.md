@@ -1,6 +1,6 @@
 # ReserveMyTokens - An AI Capacity Cooperative
 
-> Give when idle. Use when needed. Donate what matters.
+> **Stopped before launch (November 2026).** Nothing was deployed and no outside user ran it. Read [LEARNINGS.md](LEARNINGS.md) for the post-mortem and open [demo/index.html](demo/index.html) for the ledger demo.
 
 **ReserveMyTokens** is a planned cooperative (central coordinator, outbound-polling workers; nothing is deployed) for saving and donating spare local compute running open-weight models. 
 
